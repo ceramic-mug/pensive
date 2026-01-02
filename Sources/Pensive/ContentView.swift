@@ -71,48 +71,14 @@ struct ContentView: View {
                     ContentUnavailableView("Select an Entry", systemImage: "pencil.line", description: Text("Choose a journal entry from the sidebar to start writing."))
                 }
                 
-                // Unified Top-Left Hover Zone
-                if settings.isDistractionFree {
-                    ZStack(alignment: .topLeading) {
-                        Color.clear
-                            .frame(width: showTopMenu ? 200 : 100, height: showTopMenu ? 120 : 80)
-                            .contentShape(Rectangle())
-                        
-                        HStack(spacing: 12) {
-                            Button(action: { 
-                                withAnimation {
-                                    columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
-                                }
-                            }) {
-                                Image(systemName: "sidebar.left")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .padding(12)
-                                    .background(.ultraThinMaterial)
-                                    .clipShape(Circle())
-                            }
-                            .buttonStyle(.plain)
-                            
-                            Button(action: addNewEntry) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .padding(12)
-                                    .background(.ultraThinMaterial)
-                                    .clipShape(Circle())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(20)
-                        .scaleEffect(showTopMenu ? 1 : 0.8)
-                        .opacity(showTopMenu ? 1 : 0)
-                    }
-                    .onHover { hovering in
-                        if hovering != showTopMenu {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                showTopMenu = hovering
-                            }
-                        }
-                    }
-                }
+                // Unified Top-Left Buttons (Hover or Persistent)
+                TopLeftControls(
+                    columnVisibility: $columnVisibility,
+                    selectedEntryID: $selectedEntryID,
+                    showTopMenu: $showTopMenu,
+                    entries: entries,
+                    addNewEntry: addNewEntry
+                )
             }
         }
         .toolbar(settings.isDistractionFree ? .hidden : .visible, for: .windowToolbar)
@@ -156,8 +122,8 @@ struct DetailView: View {
                         .font(headerFont)
                         .foregroundColor(settings.theme.textColor)
                         .opacity(0.3)
-                        .padding(.top, 60)
-                        .padding(.bottom, 20)
+                        .padding(.top, 20)
+                        .padding(.bottom, 10)
                     Spacer()
                 }
                 
@@ -177,29 +143,7 @@ struct DetailView: View {
                 .padding(.bottom, 20)
             }
             
-            // Stable Bottom Edge Reveal Logic
-            VStack {
-                Spacer()
-                ZStack(alignment: .bottom) {
-                    Color.clear
-                        .frame(height: showBottomToolbar ? 150 : 80)
-                        .contentShape(Rectangle())
-                    
-                    if !settings.isDistractionFree || showBottomToolbar {
-                        FloatingToolbar(entry: entry)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                            .padding(.bottom, 24)
-                    }
-                }
-                .onHover { hovering in
-                    if hovering != showBottomToolbar {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            showBottomToolbar = hovering
-                        }
-                    }
-                }
-            }
-            .ignoresSafeArea()
+            // Removed FloatingToolbar and its hover logic
         }
         .onChange(of: pickerQuery) { oldValue, newValue in
             selectedIndex = 0
@@ -281,93 +225,149 @@ struct DetailView: View {
     }
 }
 
-struct FloatingToolbar: View {
+// Top-level controls that can be persistent or hover-based
+struct TopLeftControls: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var settings: AppSettings
-    @Bindable var entry: JournalEntry
-    @State private var locationManager = LocationManager()
-    @State private var showMap = false
-    
+    @Binding var columnVisibility: NavigationSplitViewVisibility
+    @Binding var selectedEntryID: UUID?
+    @Binding var showTopMenu: Bool
+    let entries: [JournalEntry]
+    let addNewEntry: () -> Void
+
     var body: some View {
-        HStack(spacing: 20) {
+        ZStack(alignment: .topLeading) {
+            // Hover area for distraction-free mode
+            if settings.isDistractionFree {
+                Color.clear
+                    .frame(width: showTopMenu ? 250 : 100, height: showTopMenu ? 120 : 80)
+                    .contentShape(Rectangle())
+                    .onHover { hovering in
+                        if hovering != showTopMenu {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                showTopMenu = hovering
+                            }
+                        }
+                    }
+            }
+
             HStack(spacing: 12) {
-                ToolbarIconButton(icon: "trash", color: .red) {
-                    modelContext.delete(entry)
-                }
-                ToolbarIconButton(icon: "location") {
-                    locationManager.requestLocation()
-                }
-                .onChange(of: locationManager.location) { old, new in
-                    if let location = new {
-                        entry.latitude = location.coordinate.latitude
-                        entry.longitude = location.coordinate.longitude
-                        entry.locationName = locationManager.locationName
+                TopLeftButton(icon: "sidebar.left", help: "Toggle Sidebar") {
+                    withAnimation {
+                        columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
                     }
                 }
                 
-                if entry.latitude != nil {
-                    ToolbarIconButton(icon: "map", color: showMap ? .accentColor : .primary) {
-                        showMap.toggle()
-                    }
-                    .popover(isPresented: $showMap) {
-                        MiniMapView(latitude: entry.latitude!, longitude: entry.longitude!)
-                            .frame(width: 300, height: 200)
+                TopLeftButton(icon: "plus", help: "New Entry") {
+                    addNewEntry()
+                }
+
+                if let entryID = selectedEntryID, let entry = entries.first(where: { $0.id == entryID }) {
+                    EntrySettingsMenu(entry: entry) {
+                        selectedEntryID = nil
                     }
                 }
             }
-            
-            Divider().frame(height: 20)
-            
-            HStack(spacing: 12) {
-                Image(systemName: "arrow.left.and.right")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                Slider(value: $settings.horizontalPadding, in: 20...400)
-                    .frame(width: 80)
+            .padding(20)
+            .scaleEffect(settings.isDistractionFree ? (showTopMenu ? 1 : 0.8) : 1)
+            .opacity(settings.isDistractionFree ? (showTopMenu ? 1 : 0) : 1)
+        }
+    }
+}
+
+struct TopLeftButton: View {
+    let icon: String
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+                .padding(12)
+                .background(.ultraThinMaterial)
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+}
+
+struct EntrySettingsMenu: View {
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var settings: AppSettings
+    @Bindable var entry: JournalEntry
+    var onDeleted: () -> Void
+
+    var body: some View {
+        Menu {
+            Section("Entry") {
+                Button(role: .destructive, action: { 
+                    modelContext.delete(entry)
+                    onDeleted()
+                }) {
+                    Label("Delete Entry", systemImage: "trash")
+                }
+                
+                Button(action: {
+                    let locationManager = LocationManager()
+                    locationManager.requestLocation()
+                }) {
+                    Label("Update Location", systemImage: "location")
+                }
             }
-            
-            Divider().frame(height: 20)
-            
-            HStack(spacing: 12) {
-                Picker("", selection: $settings.font) {
+
+            Section("Appearance") {
+                Picker("Font", selection: $settings.font) {
                     Text("Sans").tag(AppFont.sans)
                     Text("Serif").tag(AppFont.serif)
                     Text("Mono").tag(AppFont.mono)
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 150)
-            }
-            
-            Divider().frame(height: 20)
-            
-            HStack(spacing: 16) {
-                ForEach(AppTheme.allCases) { theme in
-                    Circle()
-                        .fill(theme.backgroundColor)
-                        .frame(width: 20, height: 20)
-                        .overlay(Circle().stroke(Color.primary.opacity(settings.theme == theme ? 0.5 : 0.1), lineWidth: 2))
-                        .onTapGesture {
-                            withAnimation { settings.theme = theme }
-                        }
+                
+                ControlGroup {
+                    Button(action: { settings.textSize = max(12, settings.textSize - 2) }) {
+                        Label("Decrease Text Size", systemImage: "textformat.size.smaller")
+                    }
+                    Button(action: { settings.textSize = min(72, settings.textSize + 2) }) {
+                        Label("Increase Text Size", systemImage: "textformat.size.larger")
+                    }
+                } label: {
+                    Text("Text Size: \(Int(settings.textSize))")
+                }
+
+                Picker("Theme", selection: $settings.theme) {
+                    ForEach(AppTheme.allCases) { theme in
+                        Text(theme.rawValue.capitalized).tag(theme)
+                    }
                 }
             }
-            
-            Divider().frame(height: 20)
-            
-            HStack(spacing: 12) {
-                ToolbarIconButton(icon: settings.isDistractionFree ? "eye" : "eye.slash") {
-                    withAnimation { settings.isDistractionFree.toggle() }
+
+            Section("Layout") {
+                Slider(value: $settings.horizontalPadding, in: 20...400) {
+                    Text("Margins")
+                } minimumValueLabel: {
+                    Image(systemName: "arrow.left.and.right")
+                } maximumValueLabel: {
+                    Image(systemName: "arrow.left.and.right")
                 }
-                .help(settings.isDistractionFree ? "Show Menu" : "Hide Menu")
+                
+                Button(action: { withAnimation { settings.isDistractionFree.toggle() } }) {
+                    Label(settings.isDistractionFree ? "Exit Focus Mode" : "Enter Focus Mode", systemImage: settings.isDistractionFree ? "eye" : "eye.slash")
+                }
             }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 16, weight: .medium))
+                .padding(12)
+                .background(.ultraThinMaterial)
+                .clipShape(Circle())
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
-        .clipShape(Capsule())
-        .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
+        .menuStyle(.borderlessButton)
+        .help("Settings & Actions")
     }
 }
+
+// FloatingToolbar removed and integrated into top-left menu
 
 struct MiniMapView: View {
     let latitude: Double
