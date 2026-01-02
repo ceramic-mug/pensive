@@ -67,9 +67,15 @@ enum AppTheme: String, CaseIterable, Identifiable {
     
     var selectionColor: Color {
         switch self {
-        case .light: return Color.accentColor.opacity(0.15)
-        case .dark: return Color.accentColor.opacity(0.25)
-        case .sepia: return Color(red: 0.6, green: 0.4, blue: 0.2).opacity(0.2)
+        case .light:
+            // Soft Blue-Grey Highlight
+            return Color(red: 0.88, green: 0.92, blue: 0.97)
+        case .dark:
+            // Deep Slate Highlight (Avoiding jarring blue)
+            return Color(red: 0.26, green: 0.28, blue: 0.32)
+        case .sepia:
+            // Warm Almond Highlight
+            return Color(red: 0.89, green: 0.84, blue: 0.76)
         }
     }
 }
