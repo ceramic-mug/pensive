@@ -71,45 +71,47 @@ struct ContentView: View {
                     ContentUnavailableView("Select an Entry", systemImage: "pencil.line", description: Text("Choose a journal entry from the sidebar to start writing."))
                 }
                 
-                // Stable Top-Left Edge Reveal
+                // Unified Top-Left Hover Zone
                 if settings.isDistractionFree {
-                    Color.clear
-                        .frame(width: 150, height: 100)
-                        .contentShape(Rectangle())
-                        .onHover { hovering in
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    ZStack(alignment: .topLeading) {
+                        Color.clear
+                            .frame(width: showTopMenu ? 200 : 100, height: showTopMenu ? 120 : 80)
+                            .contentShape(Rectangle())
+                        
+                        HStack(spacing: 12) {
+                            Button(action: { 
+                                withAnimation {
+                                    columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
+                                }
+                            }) {
+                                Image(systemName: "sidebar.left")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .padding(12)
+                                    .background(.ultraThinMaterial)
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Button(action: addNewEntry) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .padding(12)
+                                    .background(.ultraThinMaterial)
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(20)
+                        .scaleEffect(showTopMenu ? 1 : 0.8)
+                        .opacity(showTopMenu ? 1 : 0)
+                    }
+                    .onHover { hovering in
+                        if hovering != showTopMenu {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                 showTopMenu = hovering
                             }
                         }
-                        .overlay(
-                            HStack {
-                                Button(action: { 
-                                    withAnimation {
-                                        columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
-                                    }
-                                }) {
-                                    Image(systemName: "sidebar.left")
-                                        .font(.system(size: 16, weight: .medium))
-                                        .padding(12)
-                                        .background(.ultraThinMaterial)
-                                        .clipShape(Circle())
-                                }
-                                .buttonStyle(.plain)
-                                
-                                Button(action: addNewEntry) {
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 16, weight: .medium))
-                                        .padding(12)
-                                        .background(.ultraThinMaterial)
-                                        .clipShape(Circle())
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .padding(20)
-                            .scaleEffect(showTopMenu ? 1 : 0.8)
-                            .opacity(showTopMenu ? 1 : 0)
-                            , alignment: .topLeading
-                        )
+                    }
                 }
             }
         }
