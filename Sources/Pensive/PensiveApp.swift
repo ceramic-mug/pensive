@@ -6,11 +6,16 @@ import SwiftData
 struct PensiveApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var settings = AppSettings()
+    @StateObject private var rssService = RSSService()
     
     let container: ModelContainer
     
     init() {
-        let schema = Schema([JournalEntry.self])
+        let schema = Schema([
+            JournalEntry.self,
+            JournalSection.self,
+            ReadArticle.self
+        ])
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let directoryURL = appSupport.appendingPathComponent("Pensive", isDirectory: true)
         try? FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
@@ -29,6 +34,7 @@ struct PensiveApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(settings)
+                .environmentObject(rssService)
                 .modelContainer(container)
                 .frame(minWidth: 600, minHeight: 400)
         }

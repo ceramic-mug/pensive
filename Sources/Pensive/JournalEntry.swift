@@ -5,7 +5,12 @@ import SwiftData
 final class JournalEntry {
     var id: UUID
     var date: Date
-    var content: String
+    @Relationship(deleteRule: .cascade, inverse: \JournalSection.entry) 
+    var sections: [JournalSection] = []
+    
+    // Kept for potential migration of old data, though we'll move it to a section
+    var content: String 
+    
     var latitude: Double?
     var longitude: Double?
     var locationName: String?
@@ -14,5 +19,6 @@ final class JournalEntry {
         self.id = UUID()
         self.date = date
         self.content = content
+        self.sections = []
     }
 }

@@ -4,6 +4,7 @@ import AppKit
 
 struct NativeTextView: NSViewRepresentable {
     @Binding var text: String
+    @Binding var height: CGFloat
     var fontName: String
     var fontSize: CGFloat
     var textColor: Color
@@ -20,11 +21,7 @@ struct NativeTextView: NSViewRepresentable {
         case moveUp, moveDown, confirm, complete, cancel
     }
     
-    func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
-        scrollView.hasVerticalScroller = true
-        scrollView.drawsBackground = false
-        
+    func makeNSView(context: Context) -> CommandTextView {
         let textView = CommandTextView()
         textView.delegate = context.coordinator
         textView.isEditable = true
@@ -36,19 +33,19 @@ struct NativeTextView: NSViewRepresentable {
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
         textView.focusRingType = .none
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainerInset = NSSize(width: horizontalPadding, height: 20)
         
-        scrollView.documentView = textView
-        return scrollView
+        return textView
     }
     
-    func updateNSView(_ nsView: NSScrollView, context: Context) {
-        guard let textView = nsView.documentView as? CommandTextView else { return }
-        
+    func updateNSView(_ textView: CommandTextView, context: Context) {
         context.coordinator.parent = self
         textView.onCommand = onCommand
         
         if textView.string != text {
             textView.string = text
+            context.coordinator.updateHeight(textView)
         }
         
         let font: NSFont
@@ -60,13 +57,21 @@ struct NativeTextView: NSViewRepresentable {
             font = NSFont(name: fontName, size: fontSize) ?? .systemFont(ofSize: fontSize)
         }
         
-        textView.font = font
+        if textView.font != font {
+            textView.font = font
+            context.coordinator.updateHeight(textView)
+        }
+        
         textView.textColor = NSColor(textColor)
         textView.selectedTextAttributes = [
             .backgroundColor: NSColor(selectionColor),
             .foregroundColor: NSColor(textColor)
         ]
-        textView.textContainerInset = NSSize(width: horizontalPadding, height: 20)
+        
+        if textView.textContainerInset.width != horizontalPadding {
+            textView.textContainerInset = NSSize(width: horizontalPadding, height: 20)
+            context.coordinator.updateHeight(textView)
+        }
     }
     
     func makeCoordinator() -> Coordinator {
@@ -87,6 +92,8 @@ struct NativeTextView: NSViewRepresentable {
             if parent.text != content {
                 parent.text = content
             }
+            
+            updateHeight(textView)
             
             // Trigger detection
             let range = textView.selectedRange()
@@ -121,6 +128,21 @@ struct NativeTextView: NSViewRepresentable {
             }
             if parent.isPickerPresented {
                 parent.isPickerPresented = false
+            }
+        }
+        
+        func updateHeight(_ textView: NSTextView) {
+            guard let layoutManager = textView.layoutManager,
+                  let textContainer = textView.textContainer else { return }
+            
+            layoutManager.ensureLayout(for: textContainer)
+            let usedRect = layoutManager.usedRect(for: textContainer)
+            let height = usedRect.height + textView.textContainerInset.height * 2
+            
+            DispatchQueue.main.async {
+                if self.parent.height != height {
+                    self.parent.height = height
+                }
             }
         }
     }
