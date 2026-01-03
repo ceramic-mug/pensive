@@ -636,6 +636,30 @@ struct ExpandingSettingsMenu: View {
                     }
                     .buttonStyle(.bordered)
                 }
+                
+                Divider()
+
+                Text("Column Margin")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                HStack {
+                    Button(action: { settings.horizontalPadding = max(0, settings.horizontalPadding - 20) }) {
+                        Image(systemName: "arrow.left.and.right")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Text("\(Int(settings.horizontalPadding))")
+                        .font(.system(.body, design: .rounded).monospacedDigit())
+                        .frame(width: 30)
+                    
+                    Button(action: { settings.horizontalPadding = min(400, settings.horizontalPadding + 20) }) {
+                        Image(systemName: "arrow.right.and.left")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
             .padding()
             .frame(width: 200)
