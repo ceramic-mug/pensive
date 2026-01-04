@@ -12,8 +12,6 @@ struct ContentView: View {
     @State private var selectedEntryID: UUID?
     @State private var searchText: String = ""
     @State private var columnVisibility = NavigationSplitViewVisibility.all
-    @State private var showTopMenu = false
-    @State private var showBottomToolbar = false
     @State private var sidebarSelection: SidebarItem = .journal
     
     enum SidebarItem: String, CaseIterable, Identifiable {
@@ -97,56 +95,44 @@ struct ContentView: View {
                 }
                 .listStyle(.sidebar)
             }
-            .navigationTitle("Pensive")
+            .navigationTitle("")
         } detail: {
             if sidebarSelection == .journal {
                 JournalView(
                     entries: entries,
                     selectedEntryID: $selectedEntryID,
-                    showBottomToolbar: $showBottomToolbar,
                     columnVisibility: $columnVisibility,
-                    showTopMenu: $showTopMenu,
                     addNewEntry: addNewEntry
                 )
             } else {
                 StudyView()
             }
         }
-            .background(
+        .modify {
+            if #available(macOS 15.0, *) {
+                $0.windowToolbarFullScreenVisibility(.onHover)
+            } else {
+                $0
+            }
+        }
+        .background(
                 Group {
                     Button("") { settings.textSize = min(72, settings.textSize + 2) }
                         .keyboardShortcut("+", modifiers: .command)
                     Button("") { settings.textSize = max(12, settings.textSize - 2) }
                         .keyboardShortcut("-", modifiers: .command)
-                    Button("") { withAnimation { settings.isDistractionFree.toggle() } }
-                        .keyboardShortcut("d", modifiers: .command)
                 }
                 .opacity(0)
             )
-            .onChange(of: settings.isDistractionFree) { oldValue, newValue in
-                if sidebarSelection == .journal {
-                    withAnimation {
-                        columnVisibility = newValue ? .detailOnly : .all
-                    }
-                }
-            }
             .onChange(of: sidebarSelection) { oldValue, newValue in
                 if newValue == .journal {
                     autoSelectTodayEntry()
                 }
-                
-                // Exit distraction free automatically if switching to Study
-                if newValue == .study && settings.isDistractionFree {
-                    withAnimation {
-                        settings.isDistractionFree = false
-                        columnVisibility = .all
-                    }
-                }
             }
-            .toolbar(.hidden, for: .windowToolbar)
             .onAppear {
                 autoSelectTodayEntry()
             }
+            .preferredColorScheme(settings.theme == .dark ? .dark : .light)
         }
         
     private func autoSelectTodayEntry() {
@@ -166,7 +152,8 @@ struct ContentView: View {
             
             // Add the first section
             let firstSection = JournalSection(content: "", timestamp: now)
-            newEntry.sections.append(firstSection)
+            firstSection.entry = newEntry
+            modelContext.insert(firstSection)
             
             selectedEntryID = newEntry.id
         }
@@ -180,7 +167,8 @@ struct ContentView: View {
         if let existingEntry = entries.first(where: { calendar.isDate($0.date, inSameDayAs: now) }) {
             migrateLegacyContent(for: existingEntry)
             let newSection = JournalSection(content: "", timestamp: now)
-            existingEntry.sections.append(newSection)
+            newSection.entry = existingEntry
+            modelContext.insert(newSection)
             selectedEntryID = existingEntry.id
         } else {
             autoSelectTodayEntry()
@@ -199,16 +187,18 @@ struct ContentView: View {
 struct JournalView: View {
     let entries: [JournalEntry]
     @Binding var selectedEntryID: UUID?
-    @Binding var showBottomToolbar: Bool
     @Binding var columnVisibility: NavigationSplitViewVisibility
-    @Binding var showTopMenu: Bool
     let addNewEntry: () -> Void
     @EnvironmentObject var settings: AppSettings
     
     var body: some View {
         ZStack(alignment: .topLeading) {
             if let entryID = selectedEntryID, let entry = entries.first(where: { $0.id == entryID }) {
-                DetailView(entry: entry, showBottomToolbar: $showBottomToolbar)
+                DetailView(
+                    entry: entry, 
+                    columnVisibility: $columnVisibility,
+                    selectedEntryID: $selectedEntryID
+                )
             } else {
                 ContentUnavailableView {
                     Label("Select an Entry", systemImage: "pencil.line")
@@ -224,16 +214,8 @@ struct JournalView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(settings.theme.backgroundColor)
             }
-            
-            // Floating controls are ONLY in Journal mode
-            TopLeftControls(
-                columnVisibility: $columnVisibility,
-                selectedEntryID: $selectedEntryID,
-                showTopMenu: $showTopMenu,
-                entries: entries,
-                addNewEntry: addNewEntry
-            )
         }
+        .navigationTitle("")
     }
 }
 
@@ -241,13 +223,17 @@ struct StudyView: View {
     var body: some View {
         MedicalJournalBrowserView()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .navigationTitle("")
     }
 }
 
 struct DetailView: View {
     @Bindable var entry: JournalEntry
     @EnvironmentObject var settings: AppSettings
-    @Binding var showBottomToolbar: Bool
+    @Environment(\.modelContext) private var modelContext
+    @Binding var columnVisibility: NavigationSplitViewVisibility
+    @Binding var selectedEntryID: UUID?
+    @State private var isMenuExpanded = false
     
     // Picker state is now handled within SectionEditor
     
@@ -269,33 +255,48 @@ struct DetailView: View {
                     Spacer()
                 }
                 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 30) {
-                        ForEach(entry.sections.sorted(by: { $0.timestamp < $1.timestamp })) { section in
-                            SectionEditor(
-                                section: section,
-                                fontName: settings.font.name,
-                                fontSize: settings.textSize,
-                                textColor: settings.theme.textColor,
-                                selectionColor: settings.theme.selectionColor,
-                                horizontalPadding: settings.horizontalPadding,
-                                parentEntry: entry
-                            )
+                GeometryReader { geometry in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            let calculatedPadding = geometry.size.width * settings.marginPercentage
+                            
+                            if let firstSection = entry.sections.first {
+                                EntryEditor(
+                                    section: firstSection,
+                                    fontName: settings.font.name,
+                                    fontSize: settings.textSize,
+                                    textColor: settings.theme.textColor,
+                                    selectionColor: settings.theme.selectionColor,
+                                    horizontalPadding: calculatedPadding
+                                )
+                            }
                         }
-                        
-                        .padding(.horizontal, settings.horizontalPadding + 20)
-                        .padding(.bottom, 40)
+                        .padding(.top, 20)
                     }
                 }
+                .padding(.bottom, 120)
             }
         }
         .onAppear {
-            if !entry.content.isEmpty && entry.sections.isEmpty {
-                let migratedSection = JournalSection(content: entry.content, timestamp: entry.date)
-                entry.sections.append(migratedSection)
+            if entry.sections.isEmpty {
+                let firstSection = JournalSection(content: entry.content)
+                firstSection.entry = entry
+                modelContext.insert(firstSection)
                 entry.content = ""
             }
         }
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                ExpandingSettingsMenu(
+                    entry: entry,
+                    isExpanded: $isMenuExpanded,
+                    columnVisibility: $columnVisibility
+                ) {
+                    selectedEntryID = nil
+                }
+            }
+        }
+        .toolbarBackground(.hidden, for: .windowToolbar)
     }
     
     private var headerFont: Font {
@@ -307,116 +308,49 @@ struct DetailView: View {
     }
 }
 
-struct SectionEditor: View {
+struct EntryEditor: View {
     @Bindable var section: JournalSection
     var fontName: String
     var fontSize: CGFloat
     var textColor: Color
     var selectionColor: Color
     var horizontalPadding: CGFloat
-    var parentEntry: JournalEntry
     
     @State private var isPickerPresented = false
     @State private var pickerQuery = ""
     @State private var pickerPosition: CGPoint = .zero
     @State private var selectedIndex = 0
-    @State private var textHeight: CGFloat = 100
-    @State private var isCollapsed = false
-    @State private var isHovering = false
+    @State private var textHeight: CGFloat = 400
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Section Header
-            HStack(spacing: 8) {
-                // Time / Timestamp
-                Text(section.timestamp.formatted(date: .omitted, time: .shortened))
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundColor(textColor.opacity(0.4))
-                
-                if isCollapsed && !section.content.isEmpty {
-                    Text(section.content.replacingOccurrences(of: "\n", with: " "))
-                        .font(.system(.subheadline, design: .rounded))
-                        .foregroundColor(textColor.opacity(0.3))
-                        .lineLimit(1)
-                        .transition(.opacity)
-                }
-                
-                Spacer()
-                
-                if isHovering || isCollapsed {
-                    HStack(spacing: 12) {
-                        if !isCollapsed {
-                            Button(role: .destructive) {
-                                if let index = parentEntry.sections.firstIndex(where: { $0.id == section.id }) {
-                                    parentEntry.sections.remove(at: index)
-                                }
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.caption2)
-                                    .foregroundColor(.red.opacity(0.5))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        
-                        Button(action: { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { isCollapsed.toggle() } }) {
-                            Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
-                                .font(.system(size: 10, weight: .bold))
-                                .frame(width: 20, height: 20)
-                                .background(Color.primary.opacity(0.05))
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            .padding(.horizontal, horizontalPadding + 20)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                if isCollapsed {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { isCollapsed.toggle() }
-                }
-            }
-            .onHover { hovering in
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isHovering = hovering
-                }
-            }
-            
-            if !isCollapsed {
-                NativeTextView(
-                    text: $section.content,
-                    height: $textHeight,
-                    fontName: fontName,
-                    fontSize: fontSize,
-                    textColor: textColor,
-                    selectionColor: selectionColor,
-                    horizontalPadding: horizontalPadding,
-                    isPickerPresented: $isPickerPresented,
-                    pickerQuery: $pickerQuery,
-                    pickerPosition: $pickerPosition,
-                    onCommand: handlePickerCommand
-                )
-                .frame(height: textHeight)
-                .transition(.asymmetric(insertion: .opacity, removal: .opacity))
-            }
-        }
+        NativeTextView(
+            text: $section.content,
+            height: $textHeight,
+            fontName: fontName,
+            fontSize: fontSize,
+            textColor: textColor,
+            selectionColor: selectionColor,
+            horizontalPadding: horizontalPadding,
+            isPickerPresented: $isPickerPresented,
+            pickerQuery: $pickerQuery,
+            pickerPosition: $pickerPosition,
+            onCommand: handlePickerCommand
+        )
+        .frame(minHeight: textHeight)
         .overlay(alignment: .topLeading) {
-            if isPickerPresented && !isCollapsed {
+            if isPickerPresented {
                 SymbolPicker(query: $pickerQuery, selectedIndex: $selectedIndex) { item in
                     insertSymbol(item)
                 }
                 .padding(.top, 40)
-                .padding(.leading, horizontalPadding + 40)
+                .padding(.leading, horizontalPadding + 20)
                 .transition(.scale(0.9).combined(with: .opacity))
             }
         }
     }
     
-    // ... Picker methods remain the same
     private func handlePickerCommand(_ command: NativeTextView.ControlCommand) -> Bool {
         guard isPickerPresented else { return false }
-        
         let filteredCount = filteredSymbolsCount()
         guard filteredCount > 0 else { return false }
         
@@ -460,106 +394,22 @@ struct SectionEditor: View {
     }
 }
 
-// Top-level controls that can be persistent or hover-based
-struct TopLeftControls: View {
-    @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject var settings: AppSettings
-    @Binding var columnVisibility: NavigationSplitViewVisibility
-    @Binding var selectedEntryID: UUID?
-    @Binding var showTopMenu: Bool
-    @State private var isMenuExpanded = false // Track expansion state here
-    let entries: [JournalEntry]
-    let addNewEntry: () -> Void
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            // Anchor: Settings Menu
-            if let entryID = selectedEntryID, let entry = entries.first(where: { $0.id == entryID }) {
-                ExpandingSettingsMenu(entry: entry, isExpanded: $isMenuExpanded) {
-                    selectedEntryID = nil
-                }
-                .opacity(settings.isDistractionFree && !showTopMenu ? 0.4 : 1.0)
-            }
-
-            // Other buttons revealed on hover or if not in focus mode
-            if !settings.isDistractionFree || showTopMenu {
-                HStack(spacing: 12) {
-                    TopLeftButton(icon: "sidebar.left", help: "Toggle Sidebar") {
-                        withAnimation {
-                            columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
-                        }
-                    }
-
-                    TopLeftButton(icon: "plus", help: "New Entry") {
-                        addNewEntry()
-                    }
-
-                    if settings.isDistractionFree {
-                        TopLeftButton(icon: "eye.slash", help: "Exit Focus Mode") {
-                            withAnimation { settings.isDistractionFree = false }
-                        }
-                        .foregroundColor(.accentColor)
-                    }
-                }
-                .transition(.asymmetric(
-                    insertion: .move(edge: .leading).combined(with: .opacity),
-                    removal: .opacity
-                ))
-            }
-        }
-        .padding(.leading, 16)
-        .padding(.top, 4)
-        .padding(.trailing, 120) // Generous hit area
-        .padding(.bottom, 100)
-        .background(
-            Color.white.opacity(0.001)
-                .contentShape(Rectangle())
-        )
-        .onHover { hovering in
-            if settings.isDistractionFree && !isMenuExpanded {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    showTopMenu = hovering
-                }
-            }
-        }
-    }
-}
-
-struct TopLeftButton: View {
-    let icon: String
-    let help: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
-                .frame(width: 40, height: 40)
-                .background(.ultraThinMaterial)
-                .clipShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
-    }
-}
-
 struct ExpandingSettingsMenu: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var settings: AppSettings
     @Bindable var entry: JournalEntry
     @Binding var isExpanded: Bool
+    @Binding var columnVisibility: NavigationSplitViewVisibility
     @State private var isTypographyPresented = false
     var onDeleted: () -> Void
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             toggleButton
             if isExpanded {
                 expandedContent
             }
         }
-        .background(isExpanded ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(Color.clear))
-        .clipShape(Capsule())
     }
 
     private var toggleButton: some View {
@@ -568,35 +418,66 @@ struct ExpandingSettingsMenu: View {
                 isExpanded.toggle()
             }
         }) {
-            Image(systemName: isExpanded ? "chevron.left" : "ellipsis")
-                .font(.system(size: 14, weight: .bold))
-                .frame(width: 40, height: 40)
-                .background(.ultraThinMaterial)
-                .clipShape(Circle())
-                .foregroundColor(isExpanded ? .secondary : .primary)
+            Image(systemName: isExpanded ? "chevron.left" : "ellipsis.circle")
+                .font(.system(size: 17))
+                .foregroundColor(.secondary)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.horizontal, 4)
         .help(isExpanded ? "Collapse Settings" : "Expand Settings")
     }
 
     private var expandedContent: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 12) {
+            Group {
+                // Text Size Controls
+                HStack(spacing: 8) {
+                    Button(action: { settings.textSize = max(12, settings.textSize - 1) }) {
+                        Image(systemName: "textformat.size.smaller")
+                            .font(.system(size: 12))
+                    }
+                    .help("Smaller Text")
+                    
+                    Button(action: { settings.textSize = min(72, settings.textSize + 1) }) {
+                        Image(systemName: "textformat.size.larger")
+                            .font(.system(size: 12))
+                    }
+                    .help("Larger Text")
+                }
+                
+                // Theme Quick Select
+                HStack(spacing: 6) {
+                    ForEach(AppTheme.allCases) { theme in
+                        Button(action: { settings.theme = theme }) {
+                            Circle()
+                                .fill(theme.backgroundColor)
+                                .frame(width: 14, height: 14)
+                                .overlay(
+                                    Circle()
+                                        .stroke(settings.theme.textColor.opacity(settings.theme == theme ? 0.8 : 0.2), lineWidth: 1)
+                                )
+                                .scaleEffect(settings.theme == theme ? 1.2 : 1.0)
+                        }
+                        .buttonStyle(.plain)
+                        .help(theme.rawValue.capitalized)
+                    }
+                }
+            }
+            .foregroundColor(settings.theme.textColor.opacity(0.7))
+
             typographyMenu
-            themeMenu
-            layoutToggle
             dangerousActionsMenu
         }
-        .padding(.trailing, 4)
+        .padding(.leading, 8)
         .transition(.move(edge: .leading).combined(with: .opacity))
     }
 
     private var typographyMenu: some View {
         Button(action: { isTypographyPresented.toggle() }) {
             Image(systemName: "textformat")
-                .font(.system(size: 12, weight: .medium))
-                .frame(width: 36, height: 36)
-                .background(Color.primary.opacity(0.05))
-                .clipShape(Circle())
+                .font(.system(size: 13))
+                .foregroundColor(settings.theme.textColor.opacity(0.7))
         }
         .buttonStyle(.plain)
         .popover(isPresented: $isTypographyPresented, arrowEdge: .top) {
@@ -615,47 +496,23 @@ struct ExpandingSettingsMenu: View {
                 
                 Divider()
                 
-                Text("Text Size")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                HStack {
-                    Button(action: { settings.textSize = max(12, settings.textSize - 2) }) {
-                        Image(systemName: "textformat.size.smaller")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    
-                    Text("\(Int(settings.textSize))")
-                        .font(.system(.body, design: .rounded).monospacedDigit())
-                        .frame(width: 30)
-                    
-                    Button(action: { settings.textSize = min(72, settings.textSize + 2) }) {
-                        Image(systemName: "textformat.size.larger")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                }
-                
-                Divider()
-
-                Text("Column Margin")
+                Text("Column Width")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
                 HStack {
-                    Button(action: { settings.horizontalPadding = max(0, settings.horizontalPadding - 20) }) {
-                        Image(systemName: "arrow.left.and.right")
+                    Button(action: { settings.marginPercentage = min(0.45, settings.marginPercentage + 0.05) }) {
+                        Image(systemName: "minus")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                     
-                    Text("\(Int(settings.horizontalPadding))")
+                    Text("\(Int((1.0 - settings.marginPercentage * 2) * 100))%")
                         .font(.system(.body, design: .rounded).monospacedDigit())
-                        .frame(width: 30)
+                        .frame(width: 40)
                     
-                    Button(action: { settings.horizontalPadding = min(400, settings.horizontalPadding + 20) }) {
-                        Image(systemName: "arrow.right.and.left")
+                    Button(action: { settings.marginPercentage = max(0, settings.marginPercentage - 0.05) }) {
+                        Image(systemName: "plus")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -664,43 +521,7 @@ struct ExpandingSettingsMenu: View {
             .padding()
             .frame(width: 200)
         }
-        .help("Typography")
-    }
-
-    private var themeMenu: some View {
-        Menu {
-            ForEach(AppTheme.allCases) { theme in
-                Button(action: { settings.theme = theme }) {
-                    HStack {
-                        Text(theme.rawValue.capitalized)
-                        if settings.theme == theme {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            }
-        } label: {
-            Image(systemName: "paintpalette")
-                .font(.system(size: 12, weight: .medium))
-                .frame(width: 36, height: 36)
-                .background(Color.primary.opacity(0.05))
-                .clipShape(Circle())
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .help("Theme")
-    }
-
-    private var layoutToggle: some View {
-        Button(action: { withAnimation { settings.isDistractionFree.toggle() } }) {
-            Image(systemName: settings.isDistractionFree ? "eye" : "eye.slash")
-                .font(.system(size: 12, weight: .medium))
-                .frame(width: 36, height: 36)
-                .background(Color.primary.opacity(0.05))
-                .clipShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .help(settings.isDistractionFree ? "Exit Focus Mode" : "Enter Focus Mode")
+        .help("Font & Margins")
     }
 
     private var dangerousActionsMenu: some View {
@@ -720,11 +541,9 @@ struct ExpandingSettingsMenu: View {
                 Label("Update Location", systemImage: "location")
             }
         } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 12, weight: .medium))
-                .frame(width: 36, height: 36)
-                .background(Color.primary.opacity(0.05))
-                .clipShape(Circle())
+            Image(systemName: "slider.horizontal.3")
+                .font(.system(size: 13))
+                .foregroundColor(settings.theme.textColor.opacity(0.7))
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -1143,4 +962,11 @@ struct ReadHistoryView: View {
     }
 }
 
+
+extension View {
+    @ViewBuilder
+    func modify<Content: View>(@ViewBuilder _ transform: (Self) -> Content) -> Content {
+        transform(self)
+    }
+}
 #endif

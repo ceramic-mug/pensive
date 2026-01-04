@@ -45,10 +45,9 @@ struct PensiveApp: App {
 class AppSettings: ObservableObject {
     @AppStorage("theme") var theme: AppTheme = .light
     @AppStorage("font") var font: AppFont = .sans
-    @AppStorage("isDistractionFree") var isDistractionFree: Bool = false
     @AppStorage("textSize") var textSize: Double = 20
     @AppStorage("editorWidth") var editorWidth: Double = 750
-    @AppStorage("horizontalPadding") var horizontalPadding: Double = 80
+    @AppStorage("marginPercentage") var marginPercentage: Double = 0.15
 }
 
 enum AppTheme: String, CaseIterable, Identifiable {

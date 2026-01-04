@@ -34,7 +34,16 @@ struct NativeTextView: NSViewRepresentable {
         textView.isHorizontallyResizable = false
         textView.focusRingType = .none
         textView.textContainer?.widthTracksTextView = true
-        textView.textContainerInset = NSSize(width: horizontalPadding, height: 20)
+        textView.textContainerInset = NSSize(width: horizontalPadding + 20, height: 20)
+        
+        // Listen for frame changes to recalculate height
+        textView.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(context.coordinator.frameDidChange(_:)),
+            name: NSView.frameDidChangeNotification,
+            object: textView
+        )
         
         return textView
     }
@@ -68,8 +77,9 @@ struct NativeTextView: NSViewRepresentable {
             .foregroundColor: NSColor(textColor)
         ]
         
-        if textView.textContainerInset.width != horizontalPadding {
-            textView.textContainerInset = NSSize(width: horizontalPadding, height: 20)
+        let newInset = NSSize(width: horizontalPadding + 20, height: 20)
+        if textView.textContainerInset.width != newInset.width {
+            textView.textContainerInset = newInset
             context.coordinator.updateHeight(textView)
         }
     }
@@ -131,17 +141,22 @@ struct NativeTextView: NSViewRepresentable {
             }
         }
         
+        @objc func frameDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            updateHeight(textView)
+        }
+
         func updateHeight(_ textView: NSTextView) {
-            guard let layoutManager = textView.layoutManager,
-                  let textContainer = textView.textContainer else { return }
+            let container = textView.textContainer!
+            let layoutManager = textView.layoutManager!
             
-            layoutManager.ensureLayout(for: textContainer)
-            let usedRect = layoutManager.usedRect(for: textContainer)
-            let height = usedRect.height + textView.textContainerInset.height * 2
+            layoutManager.ensureLayout(for: container)
+            let usedRect = layoutManager.usedRect(for: container)
+            let newHeight = usedRect.height + textView.textContainerInset.height * 2
             
-            DispatchQueue.main.async {
-                if self.parent.height != height {
-                    self.parent.height = height
+            if abs(parent.height - newHeight) > 0.5 {
+                DispatchQueue.main.async {
+                    self.parent.height = max(100, newHeight) // Ensure a minimum height for visibility
                 }
             }
         }
