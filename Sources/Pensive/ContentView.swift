@@ -271,6 +271,7 @@ struct DetailView: View {
                                     selectionColor: settings.theme.selectionColor,
                                     horizontalPadding: calculatedPadding
                                 )
+                                .id(firstSection.id)
                             }
                         }
                         .padding(.top, 20)
@@ -318,6 +319,8 @@ struct EntryEditor: View {
     var selectionColor: Color
     var horizontalPadding: CGFloat
     
+    @State private var draftText: String = ""
+    @State private var saveTask: Task<Void, Never>? = nil
     @State private var isPickerPresented = false
     @State private var pickerQuery = ""
     @State private var pickerPosition: CGPoint = .zero
@@ -326,7 +329,7 @@ struct EntryEditor: View {
     
     var body: some View {
         NativeTextView(
-            text: $section.content,
+            text: $draftText,
             height: $textHeight,
             fontName: fontName,
             fontSize: fontSize,
@@ -349,6 +352,29 @@ struct EntryEditor: View {
                 .transition(.scale(0.9).combined(with: .opacity))
             }
         }
+        .onAppear {
+            draftText = section.content
+        }
+        .onDisappear {
+            saveImmediately()
+        }
+        .onChange(of: draftText) { oldValue, newValue in
+            // Debounce the save to the model
+            saveTask?.cancel()
+            saveTask = Task {
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second debounce
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        section.content = draftText
+                    }
+                }
+            }
+        }
+    }
+    
+    private func saveImmediately() {
+        saveTask?.cancel()
+        section.content = draftText
     }
     
     private func handlePickerCommand(_ command: NativeTextView.ControlCommand) -> Bool {
@@ -388,8 +414,8 @@ struct EntryEditor: View {
     
     private func insertSymbol(_ item: SymbolItem) {
         let trigger = "/" + pickerQuery
-        if let range = section.content.range(of: trigger, options: .backwards) {
-            section.content.replaceSubrange(range, with: item.symbol)
+        if let range = draftText.range(of: trigger, options: .backwards) {
+            draftText.replaceSubrange(range, with: item.symbol)
             isPickerPresented = false
             pickerQuery = ""
         }
