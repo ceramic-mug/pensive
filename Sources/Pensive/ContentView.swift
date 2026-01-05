@@ -86,6 +86,8 @@ struct ContentView: View {
                                         }
                                     }
                                     .padding(.vertical, 4)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
                                 .listRowBackground(selectedEntryID == entry.id ? Color.accentColor.opacity(0.1) : Color.clear)

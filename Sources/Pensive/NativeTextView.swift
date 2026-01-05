@@ -146,10 +146,17 @@ struct NativeTextView: NSViewRepresentable {
             updateHeight(textView)
         }
 
+        private var isUpdatingHeight = false
+
         func updateHeight(_ textView: NSTextView) {
-            let container = textView.textContainer!
-            let layoutManager = textView.layoutManager!
+            guard !isUpdatingHeight else { return }
             
+            guard let container = textView.textContainer,
+                  let layoutManager = textView.layoutManager else {
+                return
+            }
+            
+            isUpdatingHeight = true
             layoutManager.ensureLayout(for: container)
             let usedRect = layoutManager.usedRect(for: container)
             let newHeight = usedRect.height + textView.textContainerInset.height * 2
@@ -157,7 +164,10 @@ struct NativeTextView: NSViewRepresentable {
             if abs(parent.height - newHeight) > 0.5 {
                 DispatchQueue.main.async {
                     self.parent.height = max(100, newHeight) // Ensure a minimum height for visibility
+                    self.isUpdatingHeight = false
                 }
+            } else {
+                isUpdatingHeight = false
             }
         }
     }
