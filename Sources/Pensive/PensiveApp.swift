@@ -14,7 +14,8 @@ struct PensiveApp: App {
         let schema = Schema([
             JournalEntry.self,
             JournalSection.self,
-            ReadArticle.self
+            ReadArticle.self,
+            ReadDay.self
         ])
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let directoryURL = appSupport.appendingPathComponent("Pensive", isDirectory: true)
@@ -48,6 +49,7 @@ class AppSettings: ObservableObject {
     @AppStorage("textSize") var textSize: Double = 20
     @AppStorage("editorWidth") var editorWidth: Double = 750
     @AppStorage("marginPercentage") var marginPercentage: Double = 0.15
+    @AppStorage("esvApiKey") var esvApiKey: String = "623bc74f74405b90cf7e98cc74215d2ea217f13a"
 }
 
 enum AppTheme: String, CaseIterable, Identifiable {
