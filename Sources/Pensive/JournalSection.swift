@@ -3,10 +3,10 @@ import SwiftData
 
 @Model
 final class JournalSection {
-    var id: UUID
-    var title: String
-    var content: String
-    var timestamp: Date
+    var id: UUID = UUID()
+    var title: String = ""
+    var content: String = ""
+    var timestamp: Date = Date()
     var entry: JournalEntry?
     
     init(content: String = "", title: String = "", timestamp: Date = .now) {

@@ -3,11 +3,11 @@ import SwiftData
 
 @Model
 class ReadArticle {
-    @Attribute(.unique) var url: String
-    var title: String
-    var category: String
-    var publicationName: String
-    var dateRead: Date
+    var url: String = ""
+    var title: String = ""
+    var category: String = ""
+    var publicationName: String = ""
+    var dateRead: Date = Date()
     var isFlagged: Bool = false
     
     init(url: String, title: String, category: String, publicationName: String) {

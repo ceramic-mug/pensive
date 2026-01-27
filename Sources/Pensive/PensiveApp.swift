@@ -16,15 +16,17 @@ struct PensiveApp: App {
             JournalSection.self,
             ReadArticle.self
         ])
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let directoryURL = appSupport.appendingPathComponent("Pensive", isDirectory: true)
-        try? FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         
-        let storeURL = directoryURL.appendingPathComponent("journal.store")
-        let config = ModelConfiguration(url: storeURL)
+        let config = ModelConfiguration(
+            "Pensive",
+            schema: schema,
+            allowsSave: true,
+            cloudKitDatabase: .private("iCloud.ceramic-mug.pensive")
+        )
         
         do {
             container = try ModelContainer(for: schema, configurations: config)
+            UbiquitousStore.shared.updateFromCloud(keys: ["theme", "font", "textSize", "editorWidth", "marginPercentage"])
         } catch {
             fatalError("Could not initialize ModelContainer: \(error)")
         }
@@ -43,11 +45,21 @@ struct PensiveApp: App {
 }
 
 class AppSettings: ObservableObject {
-    @AppStorage("theme") var theme: AppTheme = .light
-    @AppStorage("font") var font: AppFont = .sans
-    @AppStorage("textSize") var textSize: Double = 20
-    @AppStorage("editorWidth") var editorWidth: Double = 750
-    @AppStorage("marginPercentage") var marginPercentage: Double = 0.15
+    @AppStorage("theme") var theme: AppTheme = .light {
+        didSet { UbiquitousStore.shared.set(theme.rawValue, forKey: "theme") }
+    }
+    @AppStorage("font") var font: AppFont = .sans {
+        didSet { UbiquitousStore.shared.set(font.rawValue, forKey: "font") }
+    }
+    @AppStorage("textSize") var textSize: Double = 20 {
+        didSet { UbiquitousStore.shared.set(textSize, forKey: "textSize") }
+    }
+    @AppStorage("editorWidth") var editorWidth: Double = 750 {
+        didSet { UbiquitousStore.shared.set(editorWidth, forKey: "editorWidth") }
+    }
+    @AppStorage("marginPercentage") var marginPercentage: Double = 0.15 {
+        didSet { UbiquitousStore.shared.set(marginPercentage, forKey: "marginPercentage") }
+    }
 }
 
 enum AppTheme: String, CaseIterable, Identifiable {

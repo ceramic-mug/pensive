@@ -32,7 +32,7 @@ struct ContentView: View {
         } else {
             return entries.filter { entry in
                 let contentMatch = entry.content.localizedCaseInsensitiveContains(searchText)
-                let sectionMatch = entry.sections.contains { $0.content.localizedCaseInsensitiveContains(searchText) }
+                let sectionMatch = (entry.sections ?? []).contains { $0.content.localizedCaseInsensitiveContains(searchText) }
                 return contentMatch || sectionMatch
             }
         }
@@ -74,13 +74,13 @@ struct ContentView: View {
                                             .font(.system(.caption, design: .rounded).bold())
                                             .foregroundColor(.secondary)
                                         
-                                        let displayContent = entry.sections.first?.content ?? entry.content
+                                        let displayContent = entry.sections?.first?.content ?? entry.content
                                         Text(displayContent.isEmpty ? "New Day" : displayContent.replacingOccurrences(of: "\n", with: " "))
                                             .lineLimit(1)
                                             .font(.system(.body, design: .rounded))
                                         
-                                        if entry.sections.count > 1 {
-                                            Text("\(entry.sections.count) sections")
+                                        if let sections = entry.sections, sections.count > 1 {
+                                            Text("\(sections.count) sections")
                                                 .font(.system(.caption2, design: .rounded))
                                                 .foregroundColor(.accentColor.opacity(0.8))
                                         }
@@ -178,9 +178,9 @@ struct ContentView: View {
     }
     
     private func migrateLegacyContent(for entry: JournalEntry) {
-        if !entry.content.isEmpty && entry.sections.isEmpty {
+        if !entry.content.isEmpty && (entry.sections ?? []).isEmpty {
             let migratedSection = JournalSection(content: entry.content, timestamp: entry.date)
-            entry.sections.append(migratedSection)
+            entry.sections?.append(migratedSection)
             entry.content = "" // Clear after migration
         }
     }
@@ -262,7 +262,7 @@ struct DetailView: View {
                         VStack(alignment: .leading, spacing: 0) {
                             let calculatedPadding = geometry.size.width * settings.marginPercentage
                             
-                            if let firstSection = entry.sections.first {
+                            if let firstSection = entry.sections?.first {
                                 EntryEditor(
                                     section: firstSection,
                                     fontName: settings.font.name,
@@ -281,7 +281,7 @@ struct DetailView: View {
             }
         }
         .onAppear {
-            if entry.sections.isEmpty {
+            if (entry.sections ?? []).isEmpty {
                 let firstSection = JournalSection(content: entry.content)
                 firstSection.entry = entry
                 modelContext.insert(firstSection)
