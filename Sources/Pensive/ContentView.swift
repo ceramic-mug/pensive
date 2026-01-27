@@ -16,11 +16,13 @@ struct ContentView: View {
     
     enum SidebarItem: String, CaseIterable, Identifiable {
         case journal = "Journal"
+        case scripture = "Scripture"
         case study = "Study"
         var id: String { self.rawValue }
         var icon: String {
             switch self {
             case .journal: return "pencil.line"
+            case .scripture: return "book"
             case .study: return "graduationcap"
             }
         }
@@ -106,6 +108,8 @@ struct ContentView: View {
                     columnVisibility: $columnVisibility,
                     addNewEntry: addNewEntry
                 )
+            } else if sidebarSelection == .scripture {
+                ScriptureView()
             } else {
                 StudyView()
             }
