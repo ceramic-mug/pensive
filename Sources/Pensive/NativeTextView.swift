@@ -202,4 +202,100 @@ extension String {
         return self.range(of: String(char), options: .backwards)?.lowerBound
     }
 }
+#elseif os(iOS)
+import SwiftUI
+import UIKit
+
+struct NativeTextView: UIViewRepresentable {
+    @Binding var text: String
+    @Binding var height: CGFloat
+    var fontName: String
+    var fontSize: CGFloat
+    var textColor: Color
+    var selectionColor: Color
+    var horizontalPadding: CGFloat
+    
+    // Symbol Picker State (Stubbed for iOS v1)
+    @Binding var isPickerPresented: Bool
+    @Binding var pickerQuery: String
+    @Binding var pickerPosition: CGPoint
+    var onCommand: (ControlCommand) -> Bool 
+    
+    enum ControlCommand {
+        case moveUp, moveDown, confirm, complete, cancel
+    }
+
+    func makeUIView(context: Context) -> UITextView {
+        let textView = UITextView()
+        textView.delegate = context.coordinator
+        textView.isEditable = true
+        textView.isScrollEnabled = false // Allows auto-growth
+        textView.backgroundColor = .clear
+        textView.textContainerInset = UIEdgeInsets(top: 20, left: horizontalPadding + 20, bottom: 20, right: horizontalPadding + 20)
+        
+        // Toolbar for closing keyboard
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+        let flex = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+        let done = UIBarButtonItem(barButtonSystemItem: .done, target: context.coordinator, action: #selector(Coordinator.doneTapped))
+        toolbar.items = [flex, done]
+        textView.inputAccessoryView = toolbar
+        
+        return textView
+    }
+
+    func updateUIView(_ uiView: UITextView, context: Context) {
+        if uiView.text != text {
+            uiView.text = text
+        }
+        
+        // Font
+        let font: UIFont
+        if fontName == "SF Mono" || fontName == "mono" {
+            font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        } else if fontName == "system" {
+            font = .systemFont(ofSize: fontSize)
+        } else {
+            font = UIFont(name: fontName, size: fontSize) ?? .systemFont(ofSize: fontSize)
+        }
+        if uiView.font != font {
+            uiView.font = font
+        }
+        
+        uiView.textColor = UIColor(textColor)
+        // Selection color API is limited in UIKit public API, skipping for v1
+        
+        updateHeight(uiView)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    func updateHeight(_ textView: UITextView) {
+        let size = textView.sizeThatFits(CGSize(width: textView.frame.width, height: .infinity))
+        if abs(height - size.height) > 1 {
+            DispatchQueue.main.async {
+                self.height = size.height
+            }
+        }
+    }
+
+    class Coordinator: NSObject, UITextViewDelegate {
+        var parent: NativeTextView
+
+        init(_ parent: NativeTextView) {
+            self.parent = parent
+        }
+
+        func textViewDidChange(_ textView: UITextView) {
+            parent.text = textView.text
+            parent.updateHeight(textView)
+        }
+        
+        @objc func doneTapped() {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
+    }
+}
 #endif

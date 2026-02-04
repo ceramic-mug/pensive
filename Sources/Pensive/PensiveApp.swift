@@ -1,10 +1,12 @@
-#if os(macOS)
 import SwiftUI
 import SwiftData
 
 @main
 struct PensiveApp: App {
+    #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    #endif
+    
     @StateObject private var settings = AppSettings()
     @StateObject private var rssService = RSSService()
     
@@ -17,16 +19,24 @@ struct PensiveApp: App {
             ReadArticle.self,
             ReadDay.self
         ])
+        
+        #if os(macOS)
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let directoryURL = appSupport.appendingPathComponent("Pensive", isDirectory: true)
         try? FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
-        
         let storeURL = directoryURL.appendingPathComponent("journal.store")
         let config = ModelConfiguration(url: storeURL)
+        #else
+        // iOS default storage location specific to sandbox/iCloud
+        let config = ModelConfiguration() 
+        #endif
         
         do {
             container = try ModelContainer(for: schema, configurations: config)
+            #if os(macOS)
+            // Only sync prefs on launch if needed, or handle cross platform
             UbiquitousStore.shared.updateFromCloud(keys: ["theme", "font", "textSize", "editorWidth", "marginPercentage"])
+            #endif
         } catch {
             fatalError("Could not initialize ModelContainer: \(error)")
         }
@@ -38,9 +48,13 @@ struct PensiveApp: App {
                 .environmentObject(settings)
                 .environmentObject(rssService)
                 .modelContainer(container)
+                #if os(macOS)
                 .frame(minWidth: 600, minHeight: 400)
+                #endif
         }
+        #if os(macOS)
         .windowStyle(.hiddenTitleBar)
+        #endif
     }
 }
 
@@ -100,6 +114,8 @@ enum AppFont: String, CaseIterable, Identifiable {
         }
     }
 }
+
+#if os(macOS)
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)

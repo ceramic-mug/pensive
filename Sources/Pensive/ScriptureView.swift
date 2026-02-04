@@ -579,7 +579,11 @@ extension View {
                     Color.clear.preference(key: WidthPreferenceKey.self, value: geo.size.width)
                 }
             )
+            #if os(macOS)
             .padding(.horizontal, max(0, (NSScreen.main?.visibleFrame.width ?? 1200 - width) / 4))
+            #else
+            .padding(.horizontal, 16) // Default padding for iOS
+            #endif
     }
 }
 
