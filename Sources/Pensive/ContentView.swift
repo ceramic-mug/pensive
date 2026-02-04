@@ -11,16 +11,18 @@ struct ContentView: View {
     
     @State private var selectedEntryID: UUID?
     @State private var searchText: String = ""
-    @State private var columnVisibility = NavigationSplitViewVisibility.all
-    @State private var sidebarSelection: SidebarItem = .journal
+    @State private var columnVisibility = NavigationSplitViewVisibility.detailOnly
+    @State private var sidebarSelection: SidebarItem = .home
     
     enum SidebarItem: String, CaseIterable, Identifiable {
+        case home = "Home"
         case journal = "Journal"
         case scripture = "Scripture"
         case study = "Study"
         var id: String { self.rawValue }
         var icon: String {
             switch self {
+            case .home: return "house"
             case .journal: return "pencil.line"
             case .scripture: return "book"
             case .study: return "graduationcap"
@@ -43,18 +45,6 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             VStack(spacing: 0) {
-                // Search Bar
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    TextField("Search entries...", text: $searchText)
-                        .textFieldStyle(.plain)
-                }
-                .padding(10)
-                .background(Color.primary.opacity(0.05))
-                .cornerRadius(8)
-                .padding()
-                
                 List {
                     Section {
                         ForEach(SidebarItem.allCases) { item in
@@ -66,42 +56,17 @@ struct ContentView: View {
                             .padding(.vertical, 4)
                         }
                     }
-                    
-                    if sidebarSelection == .journal {
-                        Section("Entries") {
-                            ForEach(filteredEntries) { entry in
-                                Button(action: { selectedEntryID = entry.id }) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(entry.date.formatted(date: .abbreviated, time: .omitted))
-                                            .font(.system(.caption, design: .rounded).bold())
-                                            .foregroundColor(.secondary)
-                                        
-                                        let displayContent = entry.sections?.first?.content ?? entry.content
-                                        Text(displayContent.isEmpty ? "New Day" : displayContent.replacingOccurrences(of: "\n", with: " "))
-                                            .lineLimit(1)
-                                            .font(.system(.body, design: .rounded))
-                                        
-                                        if let sections = entry.sections, sections.count > 1 {
-                                            Text("\(sections.count) sections")
-                                                .font(.system(.caption2, design: .rounded))
-                                                .foregroundColor(.accentColor.opacity(0.8))
-                                        }
-                                    }
-                                    .padding(.vertical, 4)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .listRowBackground(selectedEntryID == entry.id ? Color.accentColor.opacity(0.1) : Color.clear)
-                            }
-                        }
-                    }
                 }
                 .listStyle(.sidebar)
             }
             .navigationTitle("")
         } detail: {
-            if sidebarSelection == .journal {
+            if sidebarSelection == .home {
+                HomeView(
+                    sidebarSelection: $sidebarSelection,
+                    selectedEntryID: $selectedEntryID
+                )
+            } else if sidebarSelection == .journal {
                 JournalView(
                     entries: entries,
                     selectedEntryID: $selectedEntryID,
@@ -130,14 +95,6 @@ struct ContentView: View {
                 }
                 .opacity(0)
             )
-            .onChange(of: sidebarSelection) { oldValue, newValue in
-                if newValue == .journal {
-                    autoSelectTodayEntry()
-                }
-            }
-            .onAppear {
-                autoSelectTodayEntry()
-            }
             .preferredColorScheme(settings.theme == .dark ? .dark : .light)
         }
         
@@ -206,19 +163,13 @@ struct JournalView: View {
                     selectedEntryID: $selectedEntryID
                 )
             } else {
-                ContentUnavailableView {
-                    Label("Select an Entry", systemImage: "pencil.line")
-                } description: {
-                    Text("Choose a journal entry from the sidebar to start writing.")
-                } actions: {
-                    Button(action: addNewEntry) {
-                        Text("Create New Entry")
+                JournalHomeView(
+                    addNewEntry: addNewEntry,
+                    selectEntry: { entry in
+                        selectedEntryID = entry.id
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(settings.theme.backgroundColor)
+                )
+                .environmentObject(settings)
             }
         }
         .navigationTitle("")
@@ -297,7 +248,8 @@ struct DetailView: View {
                 ExpandingSettingsMenu(
                     entry: entry,
                     isExpanded: $isMenuExpanded,
-                    columnVisibility: $columnVisibility
+                    columnVisibility: $columnVisibility,
+                    selectedEntryID: $selectedEntryID
                 ) {
                     selectedEntryID = nil
                 }
@@ -432,6 +384,7 @@ struct ExpandingSettingsMenu: View {
     @Bindable var entry: JournalEntry
     @Binding var isExpanded: Bool
     @Binding var columnVisibility: NavigationSplitViewVisibility
+    @Binding var selectedEntryID: UUID?
     @State private var isTypographyPresented = false
     var onDeleted: () -> Void
 
@@ -463,6 +416,18 @@ struct ExpandingSettingsMenu: View {
     private var expandedContent: some View {
         HStack(spacing: 12) {
             Group {
+                // Home Button (Back to Dashboard)
+                Button(action: {
+                    selectedEntryID = nil
+                    // Need to potentially clear detail state if needed, but selectedEntryID = nil handles the navigation switch
+                }) {
+                    Image(systemName: "house")
+                        .font(.system(size: 13))
+                }
+                .help("Back to Journal Home")
+                
+                Divider().frame(height: 12)
+
                 // Text Size Controls
                 HStack(spacing: 8) {
                     Button(action: { settings.textSize = max(12, settings.textSize - 1) }) {
@@ -718,20 +683,18 @@ struct MedicalJournalBrowserView: View {
                     Spacer()
                 }
             } else {
-                List {
+                ScrollView {
                     let filteredItems = rssService.items.filter { item in
                         searchText.isEmpty || 
                         item.cleanTitle.localizedCaseInsensitiveContains(searchText) || 
                         item.cleanDescription.localizedCaseInsensitiveContains(searchText)
                     }
                     
-                    ForEach(filteredItems) { item in
-                        RSSItemRow(item: item, journalName: item.journalName, category: MedicalJournal.defaults.first(where: { $0.name == item.journalName })?.category ?? "")
-                            .listRowSeparator(.hidden)
-                            .padding(.horizontal, 8)
+                    MasonryVStack(columns: 2, data: filteredItems) { item in
+                        StudyArticleCard(item: item, journalName: item.journalName, category: MedicalJournal.defaults.first(where: { $0.name == item.journalName })?.category ?? "")
                     }
+                    .padding()
                 }
-                .listStyle(.plain)
             }
         }
         .onAppear {
@@ -755,163 +718,7 @@ struct MedicalJournalBrowserView: View {
     }
 }
 
-struct RSSItemRow: View {
-    @Environment(\.modelContext) private var modelContext
-    let item: RSSItem
-    let journalName: String
-    let category: String
-    @Query private var readArticles: [ReadArticle]
-    @State private var isExpanded = false
-    
-    var isRead: Bool {
-        readArticles.contains { $0.url == item.link }
-    }
-    
-    var isStarred: Bool {
-        readArticles.first(where: { $0.url == item.link })?.isFlagged ?? false
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let imageURL = item.imageURL, let url = URL(string: imageURL) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(maxHeight: 200)
-                        .clipped()
-                        .cornerRadius(8)
-                } placeholder: {
-                    Color.primary.opacity(0.05)
-                        .frame(height: 200)
-                }
-                .padding(.bottom, 4)
-            }
-            
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.cleanTitle)
-                        .font(.system(.headline, design: .rounded))
-                        .foregroundColor(isRead ? .secondary : .primary)
-                        .multilineTextAlignment(.leading)
-                    
-                    HStack {
-                        if !journalName.isEmpty {
-                            Text(journalName)
-                                .font(.system(.caption, design: .rounded).bold())
-                                .foregroundColor(.accentColor)
-                            
-                            Text("•")
-                                .foregroundColor(.secondary.opacity(0.5))
-                        }
-                        
-                        if !item.creator.isEmpty {
-                            Text(item.creator)
-                                .font(.system(.caption, design: .rounded).bold())
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Text("•")
-                            .foregroundColor(.secondary.opacity(0.5))
-                        
-                        Text(item.pubDate)
-                            .font(.system(.caption, design: .rounded))
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Spacer()
-                
-                Button(action: toggleRead) {
-                    Image(systemName: isRead ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 20))
-                        .foregroundColor(isRead ? .green : .secondary.opacity(0.3))
-                }
-                .buttonStyle(.plain)
-                
-                Button(action: toggleStar) {
-                    Image(systemName: isStarred ? "star.fill" : "star")
-                        .font(.system(size: 20))
-                        .foregroundColor(isStarred ? .orange : .secondary.opacity(0.3))
-                }
-                .buttonStyle(.plain)
-                .padding(.leading, 8)
-            }
-            
-            if !item.cleanDescription.isEmpty {
-                Text(item.cleanDescription)
-                    .font(.system(.subheadline, design: .rounded))
-                    .foregroundColor(.primary.opacity(0.8))
-                    .lineLimit(isExpanded ? nil : 3)
-                    .padding(.vertical, 4)
-                
-                Button(action: { withAnimation { isExpanded.toggle() } }) {
-                    Text(isExpanded ? "Show Less" : "Read More")
-                        .font(.system(.caption, design: .rounded).bold())
-                        .foregroundColor(.accentColor)
-                }
-                .buttonStyle(.plain)
-            }
-            
-                Button(action: {
-                    markAsRead()
-                    if let url = URL(string: item.link) {
-                        NSWorkspace.shared.open(url)
-                    }
-                }) {
-                    Label("Open Article", systemImage: "safari")
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                }
-                .buttonStyle(.plain)
-                
-                if let doi = item.doi {
-                    Text("DOI: \(doi)")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary.opacity(0.7))
-                        .padding(.leading, 8)
-                }
-            }
-        .padding()
-        .background(Color.white.opacity(0.001)) // For selection background
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isRead ? Color.green.opacity(0.2) : Color.primary.opacity(0.05), lineWidth: 1)
-        )
-        .listRowBackground(Color.clear)
-    }
-    
-    private func markAsRead() {
-        if !isRead {
-            let newRead = ReadArticle(url: item.link, title: item.cleanTitle, category: category, publicationName: journalName)
-            modelContext.insert(newRead)
-        }
-    }
-    
-    private func toggleRead() {
-        if isRead {
-            if let existing = readArticles.first(where: { $0.url == item.link }) {
-                modelContext.delete(existing)
-            }
-        } else {
-            markAsRead()
-        }
-    }
-    
-    private func toggleStar() {
-        if let existing = readArticles.first(where: { $0.url == item.link }) {
-            existing.isFlagged.toggle()
-        } else {
-            let newRead = ReadArticle(url: item.link, title: item.cleanTitle, category: category, publicationName: journalName)
-            newRead.isFlagged = true
-            modelContext.insert(newRead)
-        }
-    }
-}
+
 
 struct ReadHistoryView: View {
     @Environment(\.modelContext) private var modelContext

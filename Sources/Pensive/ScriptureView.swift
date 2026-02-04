@@ -73,7 +73,10 @@ struct ScriptureView: View {
                         }
                         .padding(.vertical, 8)
                         
-                        Button(action: { viewMode = .reading }) {
+                        Button(action: { 
+                            loadReadings(for: selectedDate)
+                            viewMode = .reading 
+                        }) {
                             HStack(spacing: 12) {
                                 Image(systemName: "book.fill")
                                 Text("Read Now")
@@ -143,7 +146,7 @@ struct ScriptureView: View {
         ZStack(alignment: .topLeading) {
             GeometryReader { geometry in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 100) {
+                    VStack(alignment: .leading, spacing: 24) {
                         let calculatedPadding = geometry.size.width * settings.marginPercentage
                         
                         if scriptureService.isLoading {
@@ -151,18 +154,20 @@ struct ScriptureView: View {
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .padding(.top, 200)
                         } else {
-                            ForEach(scriptureService.fetchedPassages) { passage in
-                                VStack(spacing: 48) {
-                                    Text(passage.reference)
-                                        .font(getFont(size: settings.textSize * 1.5))
-                                        .underline()
-                                        .foregroundColor(settings.theme.textColor)
-                                        .frame(maxWidth: .infinity)
-                                    
-                                    Text(passage.text)
-                                        .font(getFont(size: settings.textSize))
-                                        .lineSpacing(settings.textSize * 0.45)
-                                        .foregroundColor(settings.theme.textColor)
+                            VStack(spacing: 50) {
+                                ForEach(scriptureService.fetchedPassages) { passage in
+                                    VStack(spacing: 50) {
+                                        Text(passage.reference)
+                                            .font(getFont(size: settings.textSize * 1.5))
+                                            .underline()
+                                            .foregroundColor(settings.theme.textColor)
+                                            .frame(maxWidth: .infinity)
+                                        
+                                        Text(passage.text)
+                                            .font(getFont(size: settings.textSize))
+                                            .lineSpacing(settings.textSize * 0.45)
+                                            .foregroundColor(settings.theme.textColor)
+                                    }
                                 }
                             }
                             .padding(.horizontal, calculatedPadding)

@@ -30,7 +30,7 @@ class ScriptureService: ObservableObject {
             URLQueryItem(name: "include-verse-numbers", value: "false"),
             URLQueryItem(name: "include-first-verse-numbers", value: "false"),
             URLQueryItem(name: "include-footnotes", value: "false"),
-            URLQueryItem(name: "include-headings", value: "true"),
+            URLQueryItem(name: "include-headings", value: "false"),
             URLQueryItem(name: "include-short-copyright", value: "false"),
             URLQueryItem(name: "include-copyright", value: "false"),
             URLQueryItem(name: "indent-using", value: "space"),
@@ -57,7 +57,10 @@ class ScriptureService: ObservableObject {
                         var result: [Passage] = []
                         for (index, text) in fetchedText.enumerated() {
                             if index < passages.count {
-                                result.append(Passage(reference: passages[index], text: text))
+                                // Remove indentation: Replace standard 2-space indent with empty string
+                                let processedText = text.replacingOccurrences(of: "  ", with: "")
+                                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                                result.append(Passage(reference: passages[index].trimmingCharacters(in: .whitespacesAndNewlines), text: processedText))
                             }
                         }
                         self.fetchedPassages = result

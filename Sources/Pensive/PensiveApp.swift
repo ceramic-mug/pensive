@@ -110,6 +110,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
            let icon = NSImage(contentsOfFile: iconPath) {
             NSApp.applicationIconImage = icon
         }
+        
+        DispatchQueue.main.async {
+            if let window = NSApp.windows.first {
+                window.toggleFullScreen(nil)
+            }
+        }
     }
 }
 #endif

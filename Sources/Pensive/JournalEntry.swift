@@ -15,10 +15,15 @@ final class JournalEntry {
     var longitude: Double?
     var locationName: String?
     
+    var isFavorite: Bool = false
+    var tags: [String] = []
+    
     init(content: String = "", date: Date = .now) {
         self.id = UUID()
         self.date = date
         self.content = content
         self.sections = []
+        self.isFavorite = false
+        self.tags = []
     }
 }
