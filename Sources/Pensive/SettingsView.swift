@@ -235,6 +235,8 @@ struct JournalJSONDocument: FileDocument {
 // MARK: - Import Logic
 
 #if os(macOS)
+import SQLite3
+
 @MainActor
 class DataMigrationService: ObservableObject {
     @Published var isMigrating = false
@@ -247,10 +249,18 @@ class DataMigrationService: ObservableObject {
         self.mainContext = mainContext
     }
     
-    func migrateFromLegacyBackup(at url: URL, settingsUrl: URL?) async {
+    func migrateFromLegacyBackup(at url: URL, folderURL: URL, settingsUrl: URL?) async {
         isMigrating = true
         error = nil
         progressMessage = "Preparing migration..."
+        
+        // Start accessing security-scoped resource for folder access
+        let accessing = folderURL.startAccessingSecurityScopedResource()
+        defer {
+            if accessing {
+                folderURL.stopAccessingSecurityScopedResource()
+            }
+        }
         
         do {
             // 1. Migrate Settings if available
@@ -259,29 +269,30 @@ class DataMigrationService: ObservableObject {
                 migrateSettingsFromPlist(at: settingsUrl)
             }
 
-            let schema = Schema([
-                JournalEntry.self,
-                JournalSection.self,
-                ReadArticle.self,
-                ReadDay.self
-            ])
-            
-            // 2. Create a lightweight container for the legacy store
-            let config = ModelConfiguration(url: url)
-            let legacyContainer = try ModelContainer(for: schema, configurations: config)
-            let legacyContext = ModelContext(legacyContainer)
+            // 2. Open SQLite database directly (we have folder permission now)
+            var db: OpaquePointer?
+            let openResult = sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY, nil)
+            guard openResult == SQLITE_OK else {
+                let errorMsg = String(cString: sqlite3_errmsg(db))
+                throw NSError(domain: "Migration", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not open legacy database: \(errorMsg)"])
+            }
+            defer { sqlite3_close(db) }
             
             // 3. Migrate Journal Entries
             progressMessage = "Migrating Journal Entries..."
-            try await migrateJournalEntries(from: legacyContext)
+            try await migrateJournalEntriesFromSQL(db: db!)
             
-            // 4. Migrate Read Articles
+            // 4. Migrate Journal Sections
+            progressMessage = "Migrating Journal Sections..."
+            try await migrateJournalSectionsFromSQL(db: db!)
+            
+            // 5. Migrate Read Articles
             progressMessage = "Migrating Study Progress..."
-            try await migrateReadArticles(from: legacyContext)
+            try await migrateReadArticlesFromSQL(db: db!)
             
-            // 5. Migrate Read Days
+            // 6. Migrate Read Days
             progressMessage = "Migrating Scripture Progress..."
-            try await migrateReadDays(from: legacyContext)
+            try await migrateReadDaysFromSQL(db: db!)
             
             progressMessage = "Migration Successful!"
             try mainContext.save()
@@ -307,99 +318,197 @@ class DataMigrationService: ObservableObject {
         }
     }
     
-    private func migrateJournalEntries(from legacyContext: ModelContext) async throws {
-        let descriptor = FetchDescriptor<JournalEntry>()
-        let legacyEntries = try legacyContext.fetch(descriptor)
+    // Core Data reference date is Jan 1, 2001
+    private func coreDataDateToDate(_ timestamp: Double) -> Date {
+        let coreDataReferenceDate = Date(timeIntervalSinceReferenceDate: 0)
+        return coreDataReferenceDate.addingTimeInterval(timestamp)
+    }
+    
+    private func blobToUUID(_ blob: Data?) -> UUID {
+        guard let blob = blob, blob.count >= 16 else { return UUID() }
+        return blob.withUnsafeBytes { ptr -> UUID in
+            guard let bytes = ptr.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return UUID() }
+            return UUID(uuid: (bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+                               bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]))
+        }
+    }
+    
+    private func migrateJournalEntriesFromSQL(db: OpaquePointer) async throws {
+        let query = "SELECT Z_PK, ZID, ZDATE, ZCONTENT, ZISFAVORITE, ZLATITUDE, ZLONGITUDE, ZLOCATIONNAME FROM ZJOURNALENTRY"
+        var statement: OpaquePointer?
         
-        for legacyEntry in legacyEntries {
-            let id = legacyEntry.id
-            let mainDescriptor = FetchDescriptor<JournalEntry>(predicate: #Predicate { $0.id == id })
-            let existing = try mainContext.fetch(mainDescriptor)
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            let errorMsg = String(cString: sqlite3_errmsg(db))
+            throw NSError(domain: "Migration", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to prepare journal query: \(errorMsg)"])
+        }
+        defer { sqlite3_finalize(statement) }
+        
+        var entryCount = 0
+        while sqlite3_step(statement) == SQLITE_ROW {
+            let pk = sqlite3_column_int(statement, 0)
+            
+            // Get UUID from blob
+            var entryId = UUID()
+            if let idBlob = sqlite3_column_blob(statement, 1) {
+                let idLen = sqlite3_column_bytes(statement, 1)
+                let idData = Data(bytes: idBlob, count: Int(idLen))
+                entryId = blobToUUID(idData)
+            }
+            
+            let dateTimestamp = sqlite3_column_double(statement, 2)
+            let date = coreDataDateToDate(dateTimestamp)
+            
+            let content = sqlite3_column_text(statement, 3).map { String(cString: $0) } ?? ""
+            let isFavorite = sqlite3_column_int(statement, 4) != 0
+            
+            let latitude: Double? = sqlite3_column_type(statement, 5) != SQLITE_NULL ? sqlite3_column_double(statement, 5) : nil
+            let longitude: Double? = sqlite3_column_type(statement, 6) != SQLITE_NULL ? sqlite3_column_double(statement, 6) : nil
+            let locationName = sqlite3_column_text(statement, 7).map { String(cString: $0) }
+            
+            // Check if entry already exists
+            let existingDescriptor = FetchDescriptor<JournalEntry>(predicate: #Predicate { $0.id == entryId })
+            let existing = try mainContext.fetch(existingDescriptor)
             
             if existing.isEmpty {
-                let newEntry = JournalEntry(content: legacyEntry.content, date: legacyEntry.date)
-                newEntry.id = legacyEntry.id
-                newEntry.latitude = legacyEntry.latitude
-                newEntry.longitude = legacyEntry.longitude
-                newEntry.locationName = legacyEntry.locationName
-                newEntry.isFavorite = legacyEntry.isFavorite
-                newEntry.tags = legacyEntry.tags
+                let newEntry = JournalEntry(content: content, date: date)
+                newEntry.id = entryId
+                newEntry.isFavorite = isFavorite
+                newEntry.latitude = latitude
+                newEntry.longitude = longitude
+                newEntry.locationName = locationName
+                newEntry.tagsStorage = "" // Tags are rarely used, defaulting to empty
                 
                 mainContext.insert(newEntry)
-                
-                if let sections = legacyEntry.sections {
-                    for legacySection in sections {
-                        let newSection = JournalSection(
-                            content: legacySection.content,
-                            title: legacySection.title,
-                            timestamp: legacySection.timestamp
-                        )
-                        newSection.id = legacySection.id
-                        newSection.entry = newEntry
-                        mainContext.insert(newSection)
-                    }
-                }
-            } else if let existingEntry = existing.first {
-                // If it exists, ensure we have the sections
-                if (existingEntry.sections ?? []).isEmpty, let legacySections = legacyEntry.sections, !legacySections.isEmpty {
-                    for legacySection in legacySections {
-                        let newSection = JournalSection(
-                            content: legacySection.content,
-                            title: legacySection.title,
-                            timestamp: legacySection.timestamp
-                        )
-                        newSection.id = legacySection.id
-                        newSection.entry = existingEntry
-                        mainContext.insert(newSection)
-                    }
-                }
+                entryCount += 1
             }
         }
+        
+        print("Migrated \(entryCount) journal entries")
     }
     
-    private func migrateReadArticles(from legacyContext: ModelContext) async throws {
-        let descriptor = FetchDescriptor<ReadArticle>()
-        let legacyArticles = try legacyContext.fetch(descriptor)
+    private func migrateJournalSectionsFromSQL(db: OpaquePointer) async throws {
+        // First, get a mapping of legacy PKs to our entries
+        let entryQuery = "SELECT Z_PK, ZID FROM ZJOURNALENTRY"
+        var entryStmt: OpaquePointer?
+        var pkToId: [Int32: UUID] = [:]
         
-        for legacyArticle in legacyArticles {
-            let url = legacyArticle.url
-            let mainDescriptor = FetchDescriptor<ReadArticle>(predicate: #Predicate { $0.url == url })
-            let existing = try mainContext.fetch(mainDescriptor)
+        if sqlite3_prepare_v2(db, entryQuery, -1, &entryStmt, nil) == SQLITE_OK {
+            while sqlite3_step(entryStmt) == SQLITE_ROW {
+                let pk = sqlite3_column_int(entryStmt, 0)
+                if let idBlob = sqlite3_column_blob(entryStmt, 1) {
+                    let idLen = sqlite3_column_bytes(entryStmt, 1)
+                    let idData = Data(bytes: idBlob, count: Int(idLen))
+                    pkToId[pk] = blobToUUID(idData)
+                }
+            }
+            sqlite3_finalize(entryStmt)
+        }
+        
+        let query = "SELECT ZID, ZENTRY, ZTIMESTAMP, ZCONTENT, ZTITLE FROM ZJOURNALSECTION"
+        var statement: OpaquePointer?
+        
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            throw NSError(domain: "Migration", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to prepare section query"])
+        }
+        defer { sqlite3_finalize(statement) }
+        
+        var sectionCount = 0
+        while sqlite3_step(statement) == SQLITE_ROW {
+            var sectionId = UUID()
+            if let idBlob = sqlite3_column_blob(statement, 0) {
+                let idLen = sqlite3_column_bytes(statement, 0)
+                let idData = Data(bytes: idBlob, count: Int(idLen))
+                sectionId = blobToUUID(idData)
+            }
+            
+            let entryPk = sqlite3_column_int(statement, 1)
+            let timestamp = coreDataDateToDate(sqlite3_column_double(statement, 2))
+            let content = sqlite3_column_text(statement, 3).map { String(cString: $0) } ?? ""
+            let title = sqlite3_column_text(statement, 4).map { String(cString: $0) } ?? ""
+            
+            // Find the parent entry
+            guard let entryId = pkToId[entryPk] else { continue }
+            let entryDescriptor = FetchDescriptor<JournalEntry>(predicate: #Predicate { $0.id == entryId })
+            guard let parentEntry = try mainContext.fetch(entryDescriptor).first else { continue }
+            
+            // Check if section exists
+            let existingDescriptor = FetchDescriptor<JournalSection>(predicate: #Predicate { $0.id == sectionId })
+            let existing = try mainContext.fetch(existingDescriptor)
             
             if existing.isEmpty {
-                let newArticle = ReadArticle(
-                    url: legacyArticle.url,
-                    title: legacyArticle.title,
-                    category: legacyArticle.category,
-                    publicationName: legacyArticle.publicationName
-                )
-                newArticle.dateRead = legacyArticle.dateRead
-                newArticle.isFlagged = legacyArticle.isFlagged
+                let newSection = JournalSection(content: content, title: title, timestamp: timestamp)
+                newSection.id = sectionId
+                newSection.entry = parentEntry
+                mainContext.insert(newSection)
+                sectionCount += 1
+            }
+        }
+        
+        print("Migrated \(sectionCount) journal sections")
+    }
+    
+    private func migrateReadArticlesFromSQL(db: OpaquePointer) async throws {
+        let query = "SELECT ZID, ZURL, ZTITLE, ZCATEGORY, ZPUBLICATIONNAME, ZDATEREAD, ZISFLAGGED FROM ZREADARTICLE"
+        var statement: OpaquePointer?
+        
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else { return }
+        defer { sqlite3_finalize(statement) }
+        
+        var count = 0
+        while sqlite3_step(statement) == SQLITE_ROW {
+            let url = sqlite3_column_text(statement, 1).map { String(cString: $0) } ?? ""
+            let title = sqlite3_column_text(statement, 2).map { String(cString: $0) } ?? ""
+            let category = sqlite3_column_text(statement, 3).map { String(cString: $0) } ?? ""
+            let pubName = sqlite3_column_text(statement, 4).map { String(cString: $0) } ?? ""
+            let dateRead = coreDataDateToDate(sqlite3_column_double(statement, 5))
+            let isFlagged = sqlite3_column_int(statement, 6) != 0
+            
+            let existingDescriptor = FetchDescriptor<ReadArticle>(predicate: #Predicate { $0.url == url })
+            let existing = try mainContext.fetch(existingDescriptor)
+            
+            if existing.isEmpty {
+                let newArticle = ReadArticle(url: url, title: title, category: category, publicationName: pubName)
+                newArticle.dateRead = dateRead
+                newArticle.isFlagged = isFlagged
                 mainContext.insert(newArticle)
+                count += 1
             }
         }
+        
+        print("Migrated \(count) read articles")
     }
     
-    private func migrateReadDays(from legacyContext: ModelContext) async throws {
-        let descriptor = FetchDescriptor<ReadDay>()
-        let legacyDays = try legacyContext.fetch(descriptor)
+    private func migrateReadDaysFromSQL(db: OpaquePointer) async throws {
+        let query = "SELECT ZDATESTRING, ZISREAD FROM ZREADDAY"
+        var statement: OpaquePointer?
         
-        for legacyDay in legacyDays {
-            let dateString = legacyDay.dateString
-            let mainDescriptor = FetchDescriptor<ReadDay>(predicate: #Predicate { $0.dateString == dateString })
-            let existing = try mainContext.fetch(mainDescriptor)
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else { return }
+        defer { sqlite3_finalize(statement) }
+        
+        var count = 0
+        while sqlite3_step(statement) == SQLITE_ROW {
+            let dateString = sqlite3_column_text(statement, 0).map { String(cString: $0) } ?? ""
+            let isRead = sqlite3_column_int(statement, 1) != 0
+            
+            let existingDescriptor = FetchDescriptor<ReadDay>(predicate: #Predicate { $0.dateString == dateString })
+            let existing = try mainContext.fetch(existingDescriptor)
             
             if existing.isEmpty {
-                let newDay = ReadDay(dateString: legacyDay.dateString, isRead: legacyDay.isRead)
+                let newDay = ReadDay(dateString: dateString, isRead: isRead)
                 mainContext.insert(newDay)
+                count += 1
             }
         }
+        
+        print("Migrated \(count) read days")
     }
 }
 
 struct DataImportView: View {
     @StateObject private var migrationService: DataMigrationService
     @State private var showingImportAlert = false
+    @State private var selectedURL: URL?
+    @State private var settingsURL: URL?
     
     init(context: ModelContext) {
         _migrationService = StateObject(wrappedValue: DataMigrationService(mainContext: context))
@@ -407,7 +516,7 @@ struct DataImportView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Button(action: { showingImportAlert = true }) {
+            Button(action: { selectBackupFile() }) {
                 Label("Import Legacy Desktop Backup", systemImage: "tray.and.arrow.down")
             }
             .disabled(migrationService.isMigrating)
@@ -434,26 +543,58 @@ struct DataImportView: View {
             Button("Import", role: .none) {
                 startMigration()
             }
-            Button("Cancel", role: .cancel) {}
+            Button("Cancel", role: .cancel) {
+                selectedURL = nil
+                settingsURL = nil
+            }
         } message: {
-            Text("This will look for 'journal.store' in your Desktop backup folder and merge your legacy journal and scripture progress into iCloud. This will NOT delete any existing data.")
+            Text("Ready to import from: \(selectedURL?.lastPathComponent ?? "backup folder"). This will merge your legacy journal and scripture progress into iCloud. This will NOT delete any existing data.")
+        }
+    }
+    
+    private func selectBackupFile() {
+        let panel = NSOpenPanel()
+        panel.title = "Select Pensive Backup Folder"
+        panel.message = "Select your Pensive_Manual_Backup folder (it should contain journal.store)"
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop")
+        
+        if panel.runModal() == .OK, let folderURL = panel.url {
+            // Look for journal.store in the selected folder
+            let storeURL = folderURL.appendingPathComponent("journal.store")
+            if FileManager.default.fileExists(atPath: storeURL.path) {
+                selectedURL = storeURL
+                // Check for settings file
+                let possibleSettings = folderURL.appendingPathComponent("com.joshua.pensive.plist")
+                if FileManager.default.fileExists(atPath: possibleSettings.path) {
+                    settingsURL = possibleSettings
+                }
+                showingImportAlert = true
+            } else {
+                migrationService.error = "No journal.store file found in selected folder"
+            }
         }
     }
     
     private func startMigration() {
-        let homeDir = FileManager.default.homeDirectoryForCurrentUser
-        let backupURL = homeDir.appendingPathComponent("Desktop/Pensive_Manual_Backup/journal.store")
-        let settingsURL = homeDir.appendingPathComponent("Desktop/Pensive_Manual_Backup/com.joshua.pensive.plist")
+        guard let backupURL = selectedURL else {
+            migrationService.error = "No backup file selected"
+            return
+        }
         
-        if FileManager.default.fileExists(atPath: backupURL.path) {
-            Task {
-                await migrationService.migrateFromLegacyBackup(
-                    at: backupURL, 
-                    settingsUrl: FileManager.default.fileExists(atPath: settingsURL.path) ? settingsURL : nil
-                )
-            }
-        } else {
-            migrationService.error = "Backup file not found at ~/Desktop/Pensive_Manual_Backup/journal.store"
+        let folderURL = backupURL.deletingLastPathComponent()
+        
+        Task {
+            await migrationService.migrateFromLegacyBackup(
+                at: backupURL,
+                folderURL: folderURL,
+                settingsUrl: settingsURL
+            )
+            
+            selectedURL = nil
+            settingsURL = nil
         }
     }
 }

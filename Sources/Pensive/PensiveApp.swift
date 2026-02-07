@@ -19,11 +19,18 @@ struct PensiveApp: App {
             JournalSection.self,
             ReadArticle.self,
             ReadDay.self,
-            RSSFeed.self
+            PrayedDay.self,
+            RSSFeed.self,
+            PrayerArea.self,
+            PrayerItem.self
         ])
         
-        // For CloudKit sync, ModelConfiguration should be robust but lightweight.
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        // Enable CloudKit sync with the iCloud container
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .automatic
+        )
         
         do {
             container = try ModelContainer(for: schema, configurations: config)

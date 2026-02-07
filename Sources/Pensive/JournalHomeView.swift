@@ -7,31 +7,49 @@ import UIKit
 #endif
 
 struct JournalHomeView: View {
+    @Binding var sidebarSelection: ContentView.SidebarItem?
     var addNewEntry: () -> Void
     var selectEntry: (JournalEntry) -> Void
     @EnvironmentObject var settings: AppSettings
     @Query(sort: \JournalEntry.date, order: .reverse) private var entries: [JournalEntry]
     @Environment(\.horizontalSizeClass) var sizeClass
     
-    // Browser State
+    // Simplified State
+    @State private var showLibrary = false
+    @State private var showActivity = false
     @State private var selectedYear: Int?
     @State private var selectedMonth: Date?
-    
-    // Search State
     @State private var searchText: String = ""
     @State private var showSettings = false
+    @State private var entryToRead: JournalEntry? = nil
     
     var body: some View {
-        Group {
-            #if os(iOS)
-            if sizeClass == .compact {
-                iosLayout
-            } else {
+        ZStack {
+            settings.theme.backgroundColor.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                #if os(iOS)
+                if sizeClass == .compact {
+                    iosLayout
+                } else {
+                    desktopLayout
+                }
+                #else
                 desktopLayout
+                #endif
             }
-            #else
-            desktopLayout
-            #endif
+            
+            if showLibrary {
+                libraryOverlay
+            }
+            
+            if showActivity {
+                activityOverlay
+            }
+            
+            if let entry = entryToRead {
+                entryReaderOverlay(entry)
+            }
         }
         .background(settings.theme.backgroundColor)
         .sheet(isPresented: $showSettings) {
@@ -41,231 +59,365 @@ struct JournalHomeView: View {
         .onAppear(perform: initializeSelection)
     }
     
+    // MARK: - Overlays
+    
+    private var libraryOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
+                .onTapGesture { withAnimation { showLibrary = false } }
+            
+            VStack {
+                HStack {
+                    Spacer()
+                    Button(action: { withAnimation { showLibrary = false } }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding()
+                }
+                
+                JournalColumnBrowser(
+                    entries: entries,
+                    selectedYear: $selectedYear,
+                    selectedMonth: $selectedMonth,
+                    onSelect: { entry in
+                        withAnimation { showLibrary = false }
+                        selectEntry(entry)
+                    },
+                    isCompact: false
+                )
+                .background(settings.theme.backgroundColor)
+                .cornerRadius(20)
+                .padding()
+                .shadow(radius: 20)
+            }
+            .maxInternalWidth(900)
+        }
+    }
+    
+    private var activityOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
+                .onTapGesture { withAnimation { showActivity = false } }
+            
+            VStack {
+                Spacer()
+                UnifiedHeatmapView()
+                    .padding()
+                    .background(settings.theme.backgroundColor)
+                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 32, topTrailingRadius: 32))
+                    .shadow(radius: 20)
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
+    }
+    
+    @ViewBuilder
+    private func entryReaderOverlay(_ entry: JournalEntry) -> some View {
+        ZStack {
+            // Subtle dimming backround - separated for soft fade
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture { withAnimation(.easeInOut) { entryToRead = nil } }
+                .transition(.opacity) // Pure opacity for soft fade
+            
+            // The Card - with scale/opacity transition
+            VStack(spacing: 0) {
+                HStack {
+                    Text(entry.date.formatted(date: .complete, time: .omitted))
+                        .font(.system(.headline, design: .serif))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Button(action: { withAnimation(.easeInOut) { entryToRead = nil } }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.secondary.opacity(0.5))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        Text(entry.date.formatted(date: .omitted, time: .shortened))
+                            .font(.system(.subheadline, design: .rounded).bold())
+                            .foregroundColor(.accentColor)
+                        
+                        if let sections = entry.sections, !sections.isEmpty {
+                            ForEach(sections) { section in
+                                Text(section.content)
+                                    .font(.system(.body, design: .serif))
+                                    .lineSpacing(6)
+                            }
+                        } else {
+                            Text(entry.content)
+                                .font(.system(.body, design: .serif))
+                                .lineSpacing(6)
+                        }
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .frame(maxWidth: 600, maxHeight: 600)
+            .background(settings.theme.backgroundColor)
+            .cornerRadius(24)
+            .shadow(radius: 30)
+            .padding()
+            .transition(.scale(scale: 0.9).combined(with: .opacity)) // Card scaling only
+        }
+        .zIndex(100) // Ensure it's on top
+    }
+    
     // MARK: - iOS Layout
     
     private var iosLayout: some View {
-        VStack(spacing: 0) {
-            iosHeader
-            
-            // Action Card
-            iosActionCard
-            
-            // Search Bar
-            iosSearchBar
-            
-            // Recent Entries
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Recent Entries")
-                        .font(.headline)
-                        .padding(.horizontal, 20)
+        ScrollView {
+            VStack(spacing: 32) {
+                iosHeader
+                
+                // Primary Action
+                VStack(spacing: 16) {
+                    Button(action: addNewEntry) {
+                        VStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.accentColor.opacity(0.1))
+                                    .frame(width: 60, height: 60)
+                                
+                                Image(systemName: "pencil.line")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.accentColor)
+                            }
+                            
+                            Text("Journal Now")
+                                .font(.system(.headline, design: .rounded).bold())
+                                .foregroundColor(settings.theme.textColor)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 10)
+                
+                // Search & Browse
+                VStack(spacing: 24) {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.secondary)
+                        TextField("Search your journal...", text: $searchText)
+                            .textFieldStyle(.plain)
+                    }
+                    .padding(14)
+                    .background(Color.primary.opacity(0.05))
+                    .cornerRadius(12)
+                    .padding(.horizontal, 24)
                     
-                    if entries.isEmpty {
-                        noEntriesView
-                    } else if !searchText.isEmpty {
-                        SearchResultsList(entries: entries, searchText: searchText, onSelect: selectEntry)
+                    if !searchText.isEmpty {
+                        SearchResultsList(entries: entries, searchText: searchText, onSelect: { entry in
+                            withAnimation { entryToRead = entry }
+                        })
+                        .padding(.horizontal, 24)
                     } else {
-                        recentEntriesList
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack {
+                                Text("Recent Entries")
+                                    .font(.system(.headline, design: .serif))
+                                Spacer()
+                                Button(action: { withAnimation { showLibrary = true } }) {
+                                    Text("View All")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.accentColor)
+                                }
+                            }
+                            .padding(.horizontal, 24)
+                            
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 16) {
+                                    ForEach(entries.prefix(10)) { entry in
+                                        Button(action: { withAnimation { entryToRead = entry } }) {
+                                            JournalEntryCard(entry: entry)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal, 24)
+                            }
+                        }
                     }
                 }
-                .padding(.vertical, 20)
+                
+                // Activity Toggle
+                Button(action: { withAnimation { showActivity = true } }) {
+                    Label("View Activity", systemImage: "chart.bar.fill")
+                        .font(.system(.subheadline, design: .rounded).bold())
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 40)
+                }
+                .buttonStyle(.plain)
             }
         }
-        .background(settings.theme.backgroundColor.ignoresSafeArea())
     }
     
     private var iosHeader: some View {
         HStack {
+            Button(action: { sidebarSelection = .home }) {
+                Image(systemName: "arrow.left")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(settings.theme.textColor.opacity(0.6))
+                    .padding(10)
+                    .background(Circle().fill(settings.theme.textColor.opacity(0.05)))
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 8)
+            
             VStack(alignment: .leading, spacing: 4) {
+                Text(Date().formatted(date: .long, time: .omitted))
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+                    .textCase(.uppercase)
+                    .tracking(1)
+                
                 Text("Journal")
                     .font(.system(size: 34, weight: .bold, design: .serif))
                     .foregroundColor(settings.theme.textColor)
-                
-                Text(Date().formatted(date: .long, time: .omitted))
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
             }
             
             Spacer()
             
             Button(action: { showSettings = true }) {
-                Image(systemName: "textformat.size")
-                    .font(.system(size: 16, weight: .medium))
+                Image(systemName: "gearshape.fill")
                     .foregroundColor(.secondary)
                     .padding(10)
                     .background(Color.primary.opacity(0.05))
                     .clipShape(Circle())
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 40)
-        .padding(.bottom, 20)
-        .background(settings.theme.backgroundColor)
-    }
-    
-    private var iosActionCard: some View {
-        Button(action: addNewEntry) {
-            HStack(spacing: 16) {
-                ZStack {
-                    Circle()
-                        .fill(Color.accentColor.opacity(0.1))
-                        .frame(width: 50, height: 50)
-                    
-                    Image(systemName: "pencil.line")
-                        .font(.system(size: 24))
-                        .foregroundColor(.accentColor)
-                }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("New Entry")
-                        .font(.headline)
-                        .foregroundColor(settings.theme.textColor)
-                    Text("Write down your thoughts...")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundColor(.secondary)
-            }
-            .padding(20)
-            .background(settings.theme.textColor.opacity(0.05))
-            .cornerRadius(20)
-            .padding(.horizontal, 20)
-        }
-        .buttonStyle(.plain)
-    }
-    
-    private var iosSearchBar: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
-            TextField("Search entries...", text: $searchText)
-                .textFieldStyle(.plain)
-        }
-        .padding(12)
-        .background(settings.theme.textColor.opacity(0.05))
-        .cornerRadius(12)
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 24)
         .padding(.top, 20)
-    }
-    
-    private var noEntriesView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 40))
-                .foregroundColor(.secondary.opacity(0.3))
-            Text("No entries yet")
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
-    }
-    
-    private var recentEntriesList: some View {
-        ForEach(entries.prefix(10)) { entry in
-            Button(action: { selectEntry(entry) }) {
-                JournalEntryListRow(entry: entry)
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 20)
-        }
     }
     
     // MARK: - Desktop Layout
     
+    @ViewBuilder
     private var desktopLayout: some View {
-        VStack(spacing: 0) {
-            // Header Area
-            ZStack(alignment: .top) {
-                // Top Right Search
+        GeometryReader { geo in
+            ZStack(alignment: .topLeading) {
+                // Header Area (Fixed at top)
                 HStack {
-                    Spacer()
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.secondary)
-                        TextField("Search...", text: $searchText)
-                            .textFieldStyle(.plain)
-                            .font(.custom(settings.font.name, size: 13))
-                    }
-                    .padding(6)
-                    .background(Color.primary.opacity(0.05))
-                    .cornerRadius(8)
-                    .frame(width: 200)
-                    .padding(.trailing, 20)
-                    .padding(.top, 32)
-                }
-                
-                // Centered Title & Action
-                VStack(spacing: 16) {
-                    Text("Journal")
-                        .font(.system(size: 56, weight: .bold, design: .serif))
-                        .foregroundColor(settings.theme.textColor)
-                        .padding(.top, 100)
-                    
-                    Button(action: addNewEntry) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "pencil.line")
-                            Text("Journal Now")
-                        }
-                        .font(.system(.title3, design: .rounded).bold())
-                        .padding(.horizontal, 40)
-                        .padding(.vertical, 14)
-                        .background(
-                            ZStack {
-                                Color.accentColor
-                                LinearGradient(
-                                    colors: [.white.opacity(0.2), .clear],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            }
-                        )
-                        .foregroundColor(.white)
-                        .clipShape(Capsule())
-                        .shadow(color: Color.accentColor.opacity(0.4), radius: 8, x: 0, y: 4)
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                        )
+                    Button(action: { sidebarSelection = .home }) {
+                        Image(systemName: "arrow.left")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(settings.theme.textColor.opacity(0.6))
+                            .padding(10)
+                            .background(Circle().fill(settings.theme.textColor.opacity(0.05)))
                     }
                     .buttonStyle(.plain)
+                    .padding(24)
+                    
+                    Spacer()
+                    
+                    Button(action: { showSettings = true }) {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(24)
+                }
+                .zIndex(2)
+                
+                ScrollView {
+                    VStack(spacing: 60) {
+                        Spacer(minLength: 40)
+                        
+                        VStack(spacing: 40) {
+                            Text("Journal")
+                                .font(.system(size: 64, weight: .bold, design: .serif))
+                                .foregroundColor(settings.theme.textColor)
+                            
+                            Button(action: addNewEntry) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "pencil.line")
+                                    Text("Journal Now")
+                                }
+                                .font(.system(.title3, design: .rounded).bold())
+                                .padding(.horizontal, 40)
+                                .padding(.vertical, 16)
+                                .background(Color.accentColor)
+                                .foregroundColor(.white)
+                                .clipShape(Capsule())
+                                .shadow(color: Color.accentColor.opacity(0.3), radius: 15, x: 0, y: 8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    
+                        VStack(spacing: 32) {
+                            // Integrated Search
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundColor(.secondary)
+                                TextField("Search your thoughts...", text: $searchText)
+                                    .textFieldStyle(.plain)
+                                    .font(.system(size: 18, weight: .medium, design: .serif))
+                            }
+                            .padding(20)
+                            .background(Color.primary.opacity(0.04))
+                            .cornerRadius(16)
+                            .frame(maxWidth: 600)
+                            
+                            if !searchText.isEmpty {
+                                SearchResultsList(entries: entries, searchText: searchText, onSelect: { entry in
+                                    withAnimation { entryToRead = entry }
+                                })
+                                .frame(maxWidth: 800)
+                            } else {
+                                VStack(alignment: .leading, spacing: 20) {
+                                    HStack {
+                                        Text("Recent Entries")
+                                            .font(.system(.title3, design: .serif).bold())
+                                        Spacer()
+                                        Button("Archive") { withAnimation { showLibrary = true } }
+                                            .font(.headline)
+                                            .foregroundColor(.accentColor)
+                                    }
+                                    
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 20) {
+                                            ForEach(entries.prefix(10)) { entry in
+                                                Button(action: { withAnimation { entryToRead = entry } }) {
+                                                    JournalEntryCard(entry: entry)
+                                                        .frame(width: 280)
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
+                                        }
+                                        .padding(.vertical, 10)
+                                    }
+                                }
+                                .frame(maxWidth: 800)
+                            }
+                        }
+                        .padding(.horizontal, 40)
+                        
+                        HStack(spacing: 40) {
+                            Button(action: { withAnimation { showActivity = true } }) {
+                                Label("Activity", systemImage: "chart.bar.fill")
+                            }
+                            .buttonStyle(.plain)
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        }
+                        .padding(.bottom, 60)
+                        
+                        Spacer(minLength: 40)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: geo.size.height)
                 }
             }
-            .padding(.bottom, 24)
-            .background(settings.theme.backgroundColor)
-            
-            // Main Content Area
-            Group {
-                if !searchText.isEmpty {
-                    SearchResultsList(
-                        entries: entries,
-                        searchText: searchText,
-                        onSelect: selectEntry
-                    )
-                } else {
-                    JournalColumnBrowser(
-                        entries: entries,
-                        selectedYear: $selectedYear,
-                        selectedMonth: $selectedMonth,
-                        onSelect: selectEntry,
-                        isCompact: false
-                    )
-                }
-            }
-            .frame(height: 420)
-            .frame(maxWidth: 900)
-            .padding(.top, 20)
-            
-            Spacer()
-            
-            // Compact Heatmap
-            CompactHeatmapView(entries: entries)
-                .padding(16)
-                .background(settings.theme.backgroundColor)
         }
     }
     
@@ -564,22 +716,63 @@ struct SearchResultsList: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Search Results for \"\(searchText)\"")
                 .font(.headline)
-                .padding()
                 .foregroundColor(.secondary)
             
-            List {
-                ForEach(filteredEntries) { entry in
-                    Button(action: { onSelect(entry) }) {
-                        JournalEntryListRow(entry: entry)
+            if filteredEntries.isEmpty {
+                Text("No entries found.")
+                    .foregroundColor(.secondary)
+                    .italic()
+                    .padding(.top, 20)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(filteredEntries) { entry in
+                        Button(action: { onSelect(entry) }) {
+                            JournalEntryListRow(entry: entry)
+                                .padding(16)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(settings.theme.textColor.opacity(0.03))
+                                .cornerRadius(12)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            .listStyle(.plain)
         }
+    }
+}
+
+// MARK: - Journal Entry Card
+struct JournalEntryCard: View {
+    let entry: JournalEntry
+    @EnvironmentObject var settings: AppSettings
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(entry.date.formatted(date: .abbreviated, time: .shortened))
+                .font(.system(.subheadline, design: .serif).bold())
+                .foregroundColor(settings.theme.textColor)
+            
+            let content = entry.sections?.first?.content ?? entry.content
+            Text(content.isEmpty ? "No content" : content)
+                .font(.system(.caption, design: .rounded))
+                .foregroundColor(.secondary)
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
+            
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .frame(height: 120)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(settings.theme.textColor.opacity(0.04))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+        )
     }
 }
 

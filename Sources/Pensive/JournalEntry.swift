@@ -16,7 +16,15 @@ final class JournalEntry {
     var locationName: String?
     
     var isFavorite: Bool = false
-    var tags: [String] = []
+    
+    // CloudKit doesn't support native Swift arrays - store as comma-separated string
+    var tagsStorage: String = ""
+    
+    // Computed property for convenient array access
+    @Transient var tags: [String] {
+        get { tagsStorage.isEmpty ? [] : tagsStorage.components(separatedBy: ",") }
+        set { tagsStorage = newValue.joined(separator: ",") }
+    }
     
     init(content: String = "", date: Date = .now) {
         self.id = UUID()
@@ -24,6 +32,6 @@ final class JournalEntry {
         self.content = content
         self.sections = []
         self.isFavorite = false
-        self.tags = []
+        self.tagsStorage = ""
     }
 }

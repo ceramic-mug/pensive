@@ -7,75 +7,79 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		4210DA4E2F36092400649B43 /* ReadingPlanProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA472F36092400649B43 /* ReadingPlanProvider.swift */; };
-		4210DA4F2F36092400649B43 /* AbstractCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA3A2F36092400649B43 /* AbstractCardView.swift */; };
-		4210DA502F36092400649B43 /* ScriptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA482F36092400649B43 /* ScriptureService.swift */; };
-		4210DA512F36092400649B43 /* UbiquitousStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA4C2F36092400649B43 /* UbiquitousStore.swift */; };
-		4210DA522F36092400649B43 /* PubMedService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA452F36092400649B43 /* PubMedService.swift */; };
-		4210DA532F36092400649B43 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA3B2F36092400649B43 /* ContentView.swift */; };
-		4210DA542F36092400649B43 /* JournalEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA3D2F36092400649B43 /* JournalEntry.swift */; };
-		4210DA552F36092400649B43 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA402F36092400649B43 /* LocationManager.swift */; };
-		4210DA562F36092400649B43 /* MasonryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA412F36092400649B43 /* MasonryViews.swift */; };
-		4210DA572F36092400649B43 /* JournalHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA3E2F36092400649B43 /* JournalHomeView.swift */; };
-		4210DA582F36092400649B43 /* ScriptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA492F36092400649B43 /* ScriptureView.swift */; };
-		4210DA592F36092400649B43 /* MedicalJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA422F36092400649B43 /* MedicalJournal.swift */; };
-		4210DA5A2F36092400649B43 /* NativeTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA432F36092400649B43 /* NativeTextView.swift */; };
-		4210DA5B2F36092400649B43 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA3C2F36092400649B43 /* HomeView.swift */; };
-		4210DA5C2F36092400649B43 /* ReadDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA462F36092400649B43 /* ReadDay.swift */; };
-		4210DA5D2F36092400649B43 /* JournalSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA3F2F36092400649B43 /* JournalSection.swift */; };
-		4210DA5E2F36092400649B43 /* PensiveApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA442F36092400649B43 /* PensiveApp.swift */; };
-		4210DA5F2F36092400649B43 /* SymbolPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA4B2F36092400649B43 /* SymbolPicker.swift */; };
-		4210DA602F36092400649B43 /* StudyArticleCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA4A2F36092400649B43 /* StudyArticleCard.swift */; };
-		4210DA632F360B2400649B43 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4210DA642F360B2400649B43 /* SettingsView.swift */; };
-		4210DA612F36092400649B43 /* plan.json in Resources */ = {isa = PBXBuildFile; fileRef = 4210DA382F36092400649B43 /* plan.json */; };
-		4210DA612F36092400649B43 /* plan.json in Resources */ = {isa = PBXBuildFile; fileRef = 4210DA382F36092400649B43 /* plan.json */; };
+		42A362BA2F37E37300F7B00B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 42A362B62F37E37300F7B00B /* Assets.xcassets */; };
+		42A362DF2F37E39F00F7B00B /* ReadingPlanProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362D32F37E39F00F7B00B /* ReadingPlanProvider.swift */; };
+		42A362E02F37E39F00F7B00B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362C02F37E39F00F7B00B /* ContentView.swift */; };
+		42A362E12F37E39F00F7B00B /* PrayerArea.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362CE2F37E39F00F7B00B /* PrayerArea.swift */; };
+		42A362E22F37E39F00F7B00B /* CommonUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362BF2F37E39F00F7B00B /* CommonUI.swift */; };
+		42A362E32F37E39F00F7B00B /* PrayerItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362CF2F37E39F00F7B00B /* PrayerItem.swift */; };
+		42A362E42F37E39F00F7B00B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362D72F37E39F00F7B00B /* SettingsView.swift */; };
+		42A362E52F37E39F00F7B00B /* DivineHoursView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362C22F37E39F00F7B00B /* DivineHoursView.swift */; };
+		42A362E62F37E39F00F7B00B /* ScriptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362D62F37E39F00F7B00B /* ScriptureView.swift */; };
+		42A362E72F37E39F00F7B00B /* ReadDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362D22F37E39F00F7B00B /* ReadDay.swift */; };
+		42A362E82F37E39F00F7B00B /* RSSFeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362D42F37E39F00F7B00B /* RSSFeed.swift */; };
+		42A362E92F37E39F00F7B00B /* PrayedDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362CD2F37E39F00F7B00B /* PrayedDay.swift */; };
+		42A362EA2F37E39F00F7B00B /* DivineHoursService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362C12F37E39F00F7B00B /* DivineHoursService.swift */; };
+		42A362EB2F37E39F00F7B00B /* StudyHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362D92F37E39F00F7B00B /* StudyHomeView.swift */; };
+		42A362EC2F37E39F00F7B00B /* ScriptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362D52F37E39F00F7B00B /* ScriptureService.swift */; };
+		42A362ED2F37E39F00F7B00B /* UnifiedHeatmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362DC2F37E39F00F7B00B /* UnifiedHeatmapView.swift */; };
+		42A362EE2F37E39F00F7B00B /* NativeTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362CA2F37E39F00F7B00B /* NativeTextView.swift */; };
+		42A362EF2F37E39F00F7B00B /* JournalSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362C72F37E39F00F7B00B /* JournalSection.swift */; };
+		42A362F02F37E39F00F7B00B /* PersonalPrayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362CC2F37E39F00F7B00B /* PersonalPrayerView.swift */; };
+		42A362F12F37E39F00F7B00B /* JournalHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362C62F37E39F00F7B00B /* JournalHomeView.swift */; };
+		42A362F22F37E39F00F7B00B /* UbiquitousStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362DB2F37E39F00F7B00B /* UbiquitousStore.swift */; };
+		42A362F32F37E39F00F7B00B /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362C42F37E39F00F7B00B /* HomeView.swift */; };
+		42A362F42F37E39F00F7B00B /* PensiveApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362CB2F37E39F00F7B00B /* PensiveApp.swift */; };
+		42A362F52F37E39F00F7B00B /* FeedManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362C32F37E39F00F7B00B /* FeedManagementView.swift */; };
+		42A362F62F37E39F00F7B00B /* SymbolPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362DA2F37E39F00F7B00B /* SymbolPicker.swift */; };
+		42A362F72F37E39F00F7B00B /* JournalEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362C52F37E39F00F7B00B /* JournalEntry.swift */; };
+		42A362F82F37E39F00F7B00B /* MasonryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362C92F37E39F00F7B00B /* MasonryViews.swift */; };
+		42A362F92F37E39F00F7B00B /* StudyArticleCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362D82F37E39F00F7B00B /* StudyArticleCard.swift */; };
+		42A362FA2F37E39F00F7B00B /* PubMedService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362D12F37E39F00F7B00B /* PubMedService.swift */; };
+		42A362FB2F37E39F00F7B00B /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362C82F37E39F00F7B00B /* LocationManager.swift */; };
+		42A362FC2F37E39F00F7B00B /* PrayHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362D02F37E39F00F7B00B /* PrayHomeView.swift */; };
+		42A362FD2F37E39F00F7B00B /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 42A362BC2F37E39F00F7B00B /* AppIcon.icns */; };
+		42A362FE2F37E39F00F7B00B /* plan.json in Resources */ = {isa = PBXBuildFile; fileRef = 42A362BD2F37E39F00F7B00B /* plan.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		4210DA242F3608EE00649B43 /* Pensive.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pensive.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		4210DA382F36092400649B43 /* plan.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = plan.json; sourceTree = "<group>"; };
-		4210DA3A2F36092400649B43 /* AbstractCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbstractCardView.swift; sourceTree = "<group>"; };
-		4210DA3B2F36092400649B43 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		4210DA3C2F36092400649B43 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
-		4210DA3D2F36092400649B43 /* JournalEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalEntry.swift; sourceTree = "<group>"; };
-		4210DA3E2F36092400649B43 /* JournalHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalHomeView.swift; sourceTree = "<group>"; };
-		4210DA3F2F36092400649B43 /* JournalSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalSection.swift; sourceTree = "<group>"; };
-		4210DA402F36092400649B43 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
-		4210DA412F36092400649B43 /* MasonryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MasonryViews.swift; sourceTree = "<group>"; };
-		4210DA422F36092400649B43 /* MedicalJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicalJournal.swift; sourceTree = "<group>"; };
-		4210DA432F36092400649B43 /* NativeTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTextView.swift; sourceTree = "<group>"; };
-		4210DA442F36092400649B43 /* PensiveApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PensiveApp.swift; sourceTree = "<group>"; };
-		4210DA452F36092400649B43 /* PubMedService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PubMedService.swift; sourceTree = "<group>"; };
-		4210DA462F36092400649B43 /* ReadDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadDay.swift; sourceTree = "<group>"; };
-		4210DA472F36092400649B43 /* ReadingPlanProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingPlanProvider.swift; sourceTree = "<group>"; };
-		4210DA482F36092400649B43 /* ScriptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptureService.swift; sourceTree = "<group>"; };
-		4210DA492F36092400649B43 /* ScriptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptureView.swift; sourceTree = "<group>"; };
-		4210DA4A2F36092400649B43 /* StudyArticleCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyArticleCard.swift; sourceTree = "<group>"; };
-		4210DA4B2F36092400649B43 /* SymbolPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymbolPicker.swift; sourceTree = "<group>"; };
-		4210DA4C2F36092400649B43 /* UbiquitousStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UbiquitousStore.swift; sourceTree = "<group>"; };
-		4210DA642F360B2400649B43 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		42A362B62F37E37300F7B00B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		42A362B72F37E37300F7B00B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		42A362B82F37E37300F7B00B /* Pensive.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Pensive.entitlements; sourceTree = "<group>"; };
+		42A362BC2F37E39F00F7B00B /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		42A362BD2F37E39F00F7B00B /* plan.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = plan.json; sourceTree = "<group>"; };
+		42A362BF2F37E39F00F7B00B /* CommonUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonUI.swift; sourceTree = "<group>"; };
+		42A362C02F37E39F00F7B00B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		42A362C12F37E39F00F7B00B /* DivineHoursService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DivineHoursService.swift; sourceTree = "<group>"; };
+		42A362C22F37E39F00F7B00B /* DivineHoursView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DivineHoursView.swift; sourceTree = "<group>"; };
+		42A362C32F37E39F00F7B00B /* FeedManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedManagementView.swift; sourceTree = "<group>"; };
+		42A362C42F37E39F00F7B00B /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		42A362C52F37E39F00F7B00B /* JournalEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalEntry.swift; sourceTree = "<group>"; };
+		42A362C62F37E39F00F7B00B /* JournalHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalHomeView.swift; sourceTree = "<group>"; };
+		42A362C72F37E39F00F7B00B /* JournalSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalSection.swift; sourceTree = "<group>"; };
+		42A362C82F37E39F00F7B00B /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
+		42A362C92F37E39F00F7B00B /* MasonryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MasonryViews.swift; sourceTree = "<group>"; };
+		42A362CA2F37E39F00F7B00B /* NativeTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTextView.swift; sourceTree = "<group>"; };
+		42A362CB2F37E39F00F7B00B /* PensiveApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PensiveApp.swift; sourceTree = "<group>"; };
+		42A362CC2F37E39F00F7B00B /* PersonalPrayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalPrayerView.swift; sourceTree = "<group>"; };
+		42A362CD2F37E39F00F7B00B /* PrayedDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayedDay.swift; sourceTree = "<group>"; };
+		42A362CE2F37E39F00F7B00B /* PrayerArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerArea.swift; sourceTree = "<group>"; };
+		42A362CF2F37E39F00F7B00B /* PrayerItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerItem.swift; sourceTree = "<group>"; };
+		42A362D02F37E39F00F7B00B /* PrayHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayHomeView.swift; sourceTree = "<group>"; };
+		42A362D12F37E39F00F7B00B /* PubMedService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PubMedService.swift; sourceTree = "<group>"; };
+		42A362D22F37E39F00F7B00B /* ReadDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadDay.swift; sourceTree = "<group>"; };
+		42A362D32F37E39F00F7B00B /* ReadingPlanProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingPlanProvider.swift; sourceTree = "<group>"; };
+		42A362D42F37E39F00F7B00B /* RSSFeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RSSFeed.swift; sourceTree = "<group>"; };
+		42A362D52F37E39F00F7B00B /* ScriptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptureService.swift; sourceTree = "<group>"; };
+		42A362D62F37E39F00F7B00B /* ScriptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptureView.swift; sourceTree = "<group>"; };
+		42A362D72F37E39F00F7B00B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		42A362D82F37E39F00F7B00B /* StudyArticleCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyArticleCard.swift; sourceTree = "<group>"; };
+		42A362D92F37E39F00F7B00B /* StudyHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyHomeView.swift; sourceTree = "<group>"; };
+		42A362DA2F37E39F00F7B00B /* SymbolPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymbolPicker.swift; sourceTree = "<group>"; };
+		42A362DB2F37E39F00F7B00B /* UbiquitousStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UbiquitousStore.swift; sourceTree = "<group>"; };
+		42A362DC2F37E39F00F7B00B /* UnifiedHeatmapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedHeatmapView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		4210DA312F3608F000649B43 /* Exceptions for "Pensive" folder in "Pensive" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 4210DA232F3608EE00649B43 /* Pensive */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		4210DA262F3608EE00649B43 /* Pensive */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				4210DA312F3608F000649B43 /* Exceptions for "Pensive" folder in "Pensive" target */,
-			);
-			path = Pensive;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		4210DA212F3608EE00649B43 /* Frameworks */ = {
@@ -91,8 +95,9 @@
 		4210DA1B2F3608EE00649B43 = {
 			isa = PBXGroup;
 			children = (
-				4210DA262F3608EE00649B43 /* Pensive */,
+				42A362B92F37E37300F7B00B /* Pensive */,
 				4210DA252F3608EE00649B43 /* Products */,
+				42A362DE2F37E39F00F7B00B /* Sources */,
 			);
 			sourceTree = "<group>";
 		};
@@ -104,13 +109,69 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		4210DA392F36092400649B43 /* Resources */ = {
+		42A362B92F37E37300F7B00B /* Pensive */ = {
 			isa = PBXGroup;
 			children = (
-				4210DA372F36092400649B43 /* AppIcon.icns */,
-				4210DA382F36092400649B43 /* plan.json */,
+				42A362B62F37E37300F7B00B /* Assets.xcassets */,
+				42A362B72F37E37300F7B00B /* Info.plist */,
+				42A362B82F37E37300F7B00B /* Pensive.entitlements */,
+			);
+			path = Pensive;
+			sourceTree = "<group>";
+		};
+		42A362BE2F37E39F00F7B00B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				42A362BC2F37E39F00F7B00B /* AppIcon.icns */,
+				42A362BD2F37E39F00F7B00B /* plan.json */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		42A362DD2F37E39F00F7B00B /* Pensive */ = {
+			isa = PBXGroup;
+			children = (
+				42A362BE2F37E39F00F7B00B /* Resources */,
+				42A362BF2F37E39F00F7B00B /* CommonUI.swift */,
+				42A362C02F37E39F00F7B00B /* ContentView.swift */,
+				42A362C12F37E39F00F7B00B /* DivineHoursService.swift */,
+				42A362C22F37E39F00F7B00B /* DivineHoursView.swift */,
+				42A362C32F37E39F00F7B00B /* FeedManagementView.swift */,
+				42A362C42F37E39F00F7B00B /* HomeView.swift */,
+				42A362C52F37E39F00F7B00B /* JournalEntry.swift */,
+				42A362C62F37E39F00F7B00B /* JournalHomeView.swift */,
+				42A362C72F37E39F00F7B00B /* JournalSection.swift */,
+				42A362C82F37E39F00F7B00B /* LocationManager.swift */,
+				42A362C92F37E39F00F7B00B /* MasonryViews.swift */,
+				42A362CA2F37E39F00F7B00B /* NativeTextView.swift */,
+				42A362CB2F37E39F00F7B00B /* PensiveApp.swift */,
+				42A362CC2F37E39F00F7B00B /* PersonalPrayerView.swift */,
+				42A362CD2F37E39F00F7B00B /* PrayedDay.swift */,
+				42A362CE2F37E39F00F7B00B /* PrayerArea.swift */,
+				42A362CF2F37E39F00F7B00B /* PrayerItem.swift */,
+				42A362D02F37E39F00F7B00B /* PrayHomeView.swift */,
+				42A362D12F37E39F00F7B00B /* PubMedService.swift */,
+				42A362D22F37E39F00F7B00B /* ReadDay.swift */,
+				42A362D32F37E39F00F7B00B /* ReadingPlanProvider.swift */,
+				42A362D42F37E39F00F7B00B /* RSSFeed.swift */,
+				42A362D52F37E39F00F7B00B /* ScriptureService.swift */,
+				42A362D62F37E39F00F7B00B /* ScriptureView.swift */,
+				42A362D72F37E39F00F7B00B /* SettingsView.swift */,
+				42A362D82F37E39F00F7B00B /* StudyArticleCard.swift */,
+				42A362D92F37E39F00F7B00B /* StudyHomeView.swift */,
+				42A362DA2F37E39F00F7B00B /* SymbolPicker.swift */,
+				42A362DB2F37E39F00F7B00B /* UbiquitousStore.swift */,
+				42A362DC2F37E39F00F7B00B /* UnifiedHeatmapView.swift */,
+			);
+			path = Pensive;
+			sourceTree = "<group>";
+		};
+		42A362DE2F37E39F00F7B00B /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				42A362DD2F37E39F00F7B00B /* Pensive */,
+			);
+			path = Sources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -127,9 +188,6 @@
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				4210DA262F3608EE00649B43 /* Pensive */,
 			);
 			name = Pensive;
 			packageProductDependencies = (
@@ -177,7 +235,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4210DA612F36092400649B43 /* plan.json in Resources */,
+				42A362BA2F37E37300F7B00B /* Assets.xcassets in Resources */,
+				42A362FD2F37E39F00F7B00B /* AppIcon.icns in Resources */,
+				42A362FE2F37E39F00F7B00B /* plan.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -188,26 +248,36 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4210DA4E2F36092400649B43 /* ReadingPlanProvider.swift in Sources */,
-				4210DA4F2F36092400649B43 /* AbstractCardView.swift in Sources */,
-				4210DA502F36092400649B43 /* ScriptureService.swift in Sources */,
-				4210DA512F36092400649B43 /* UbiquitousStore.swift in Sources */,
-				4210DA522F36092400649B43 /* PubMedService.swift in Sources */,
-				4210DA532F36092400649B43 /* ContentView.swift in Sources */,
-				4210DA542F36092400649B43 /* JournalEntry.swift in Sources */,
-				4210DA552F36092400649B43 /* LocationManager.swift in Sources */,
-				4210DA562F36092400649B43 /* MasonryViews.swift in Sources */,
-				4210DA572F36092400649B43 /* JournalHomeView.swift in Sources */,
-				4210DA582F36092400649B43 /* ScriptureView.swift in Sources */,
-				4210DA592F36092400649B43 /* MedicalJournal.swift in Sources */,
-				4210DA5A2F36092400649B43 /* NativeTextView.swift in Sources */,
-				4210DA5B2F36092400649B43 /* HomeView.swift in Sources */,
-				4210DA5C2F36092400649B43 /* ReadDay.swift in Sources */,
-				4210DA5D2F36092400649B43 /* JournalSection.swift in Sources */,
-				4210DA5E2F36092400649B43 /* PensiveApp.swift in Sources */,
-				4210DA5F2F36092400649B43 /* SymbolPicker.swift in Sources */,
-				4210DA602F36092400649B43 /* StudyArticleCard.swift in Sources */,
-				4210DA632F360B2400649B43 /* SettingsView.swift in Sources */,
+				42A362DF2F37E39F00F7B00B /* ReadingPlanProvider.swift in Sources */,
+				42A362E02F37E39F00F7B00B /* ContentView.swift in Sources */,
+				42A362E12F37E39F00F7B00B /* PrayerArea.swift in Sources */,
+				42A362E22F37E39F00F7B00B /* CommonUI.swift in Sources */,
+				42A362E32F37E39F00F7B00B /* PrayerItem.swift in Sources */,
+				42A362E42F37E39F00F7B00B /* SettingsView.swift in Sources */,
+				42A362E52F37E39F00F7B00B /* DivineHoursView.swift in Sources */,
+				42A362E62F37E39F00F7B00B /* ScriptureView.swift in Sources */,
+				42A362E72F37E39F00F7B00B /* ReadDay.swift in Sources */,
+				42A362E82F37E39F00F7B00B /* RSSFeed.swift in Sources */,
+				42A362E92F37E39F00F7B00B /* PrayedDay.swift in Sources */,
+				42A362EA2F37E39F00F7B00B /* DivineHoursService.swift in Sources */,
+				42A362EB2F37E39F00F7B00B /* StudyHomeView.swift in Sources */,
+				42A362EC2F37E39F00F7B00B /* ScriptureService.swift in Sources */,
+				42A362ED2F37E39F00F7B00B /* UnifiedHeatmapView.swift in Sources */,
+				42A362EE2F37E39F00F7B00B /* NativeTextView.swift in Sources */,
+				42A362EF2F37E39F00F7B00B /* JournalSection.swift in Sources */,
+				42A362F02F37E39F00F7B00B /* PersonalPrayerView.swift in Sources */,
+				42A362F12F37E39F00F7B00B /* JournalHomeView.swift in Sources */,
+				42A362F22F37E39F00F7B00B /* UbiquitousStore.swift in Sources */,
+				42A362F32F37E39F00F7B00B /* HomeView.swift in Sources */,
+				42A362F42F37E39F00F7B00B /* PensiveApp.swift in Sources */,
+				42A362F52F37E39F00F7B00B /* FeedManagementView.swift in Sources */,
+				42A362F62F37E39F00F7B00B /* SymbolPicker.swift in Sources */,
+				42A362F72F37E39F00F7B00B /* JournalEntry.swift in Sources */,
+				42A362F82F37E39F00F7B00B /* MasonryViews.swift in Sources */,
+				42A362F92F37E39F00F7B00B /* StudyArticleCard.swift in Sources */,
+				42A362FA2F37E39F00F7B00B /* PubMedService.swift in Sources */,
+				42A362FB2F37E39F00F7B00B /* LocationManager.swift in Sources */,
+				42A362FC2F37E39F00F7B00B /* PrayHomeView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -219,6 +289,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Pensive/Pensive.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = S99SBQD4T6;

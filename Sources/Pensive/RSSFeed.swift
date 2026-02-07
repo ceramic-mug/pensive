@@ -120,6 +120,19 @@ class RSSService: ObservableObject {
         items.shuffle()
     }
     
+    func sortItems(by sortOrder: StudyHomeView.StudySortOrder) {
+        switch sortOrder {
+        case .recent:
+            items.sort(by: { $0.date > $1.date })
+        case .alphabeticalTitle:
+            items.sort(by: { $0.cleanTitle < $1.cleanTitle })
+        case .alphabeticalAuthor:
+            items.sort(by: { $0.creator < $1.creator })
+        case .random:
+            items.shuffle()
+        }
+    }
+    
     func fetchFeed(url: URL, journalName: String) {
         isFetching = true
         items = []
@@ -139,8 +152,11 @@ class RSSService: ObservableObject {
                 let subParser = SubFeedParser(journalName: journalName)
                 parser.delegate = subParser
                 parser.parse()
-                self.items = subParser.items.sorted(by: { $0.date > $1.date })
-                self.isFetching = false
+                let fetchedItems = subParser.items
+                DispatchQueue.main.async {
+                    self.items = fetchedItems
+                    self.isFetching = false
+                }
             }
         }.resume()
     }
@@ -165,10 +181,12 @@ class RSSService: ObservableObject {
         Publishers.MergeMany(publishers)
             .collect()
             .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { _ in
-                self.items = self.tempItems.sorted(by: { $0.date > $1.date })
-                self.isFetching = false
-            }, receiveValue: { results in
+            .sink(receiveCompletion: { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.isFetching = false
+                }
+            }, receiveValue: { [weak self] results in
+                guard let self = self else { return }
                 for (data, name) in results {
                     let parser = XMLParser(data: data)
                     let subParser = SubFeedParser(journalName: name)
@@ -176,6 +194,7 @@ class RSSService: ObservableObject {
                     parser.parse()
                     self.tempItems.append(contentsOf: subParser.items)
                 }
+                self.items = self.tempItems
             })
             .store(in: &cancellables)
     }

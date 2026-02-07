@@ -23,6 +23,7 @@ struct ContentView: View {
         case journal = "Journal"
         case scripture = "Scripture"
         case study = "Study"
+        case pray = "Pray"
         var id: String { self.rawValue }
         var icon: String {
             switch self {
@@ -30,6 +31,7 @@ struct ContentView: View {
             case .journal: return "pencil.line"
             case .scripture: return "book"
             case .study: return "graduationcap"
+            case .pray: return "flame.fill"
             }
         }
     }
@@ -58,29 +60,35 @@ struct ContentView: View {
                         }
                         .tag(SidebarItem.home)
                     
-                    JournalHomeView(
-                        addNewEntry: addNewEntry,
-                        selectEntry: { entry in 
-                            selectedEntryID = entry.id
-                            // Logic to show entry detail would go here or be handled by navigation
-                        }
+                    JournalView(
+                        sidebarSelection: $sidebarSelection,
+                        entries: filteredEntries,
+                        selectedEntryID: $selectedEntryID,
+                        columnVisibility: $columnVisibility,
+                        addNewEntry: addNewEntry
                     )
                     .tabItem {
                         Label("Journal", systemImage: "pencil.line")
                     }
                     .tag(SidebarItem.journal)
                     
-                    ScriptureView()
+                    ScriptureView(sidebarSelection: $sidebarSelection)
                         .tabItem {
                             Label("Scripture", systemImage: "book")
                         }
                         .tag(SidebarItem.scripture)
                     
-                    StudyView()
+                    StudyView(sidebarSelection: $sidebarSelection)
                         .tabItem {
                             Label("Study", systemImage: "graduationcap")
                         }
                         .tag(SidebarItem.study)
+                    
+                    PrayHomeView(sidebarSelection: $sidebarSelection)
+                        .tabItem {
+                            Label("Pray", systemImage: "flame.fill")
+                        }
+                        .tag(SidebarItem.pray)
                 }
                 .accentColor(.accentColor)
             } else {
@@ -107,14 +115,19 @@ struct ContentView: View {
                             selectedEntryID: $selectedEntryID
                         )
                     } else if sidebarSelection == .journal {
-                        JournalHomeView(
-                            addNewEntry: addNewEntry,
-                            selectEntry: { entry in selectedEntryID = entry.id }
+                        JournalView(
+                            sidebarSelection: $sidebarSelection,
+                            entries: filteredEntries,
+                            selectedEntryID: $selectedEntryID,
+                            columnVisibility: $columnVisibility,
+                            addNewEntry: addNewEntry
                         )
                     } else if sidebarSelection == .scripture {
-                        ScriptureView()
+                        ScriptureView(sidebarSelection: $sidebarSelection)
+                    } else if sidebarSelection == .study {
+                        StudyView(sidebarSelection: $sidebarSelection)
                     } else {
-                        StudyView()
+                        PrayHomeView(sidebarSelection: $sidebarSelection)
                     }
                 }
                 .modify {
@@ -200,6 +213,7 @@ struct ContentView: View {
 }
 
 struct JournalView: View {
+    @Binding var sidebarSelection: ContentView.SidebarItem?
     let entries: [JournalEntry]
     @Binding var selectedEntryID: UUID?
     @Binding var columnVisibility: NavigationSplitViewVisibility
@@ -216,6 +230,7 @@ struct JournalView: View {
                 )
             } else {
                 JournalHomeView(
+                    sidebarSelection: $sidebarSelection,
                     addNewEntry: addNewEntry,
                     selectEntry: { entry in
                         selectedEntryID = entry.id
@@ -228,11 +243,45 @@ struct JournalView: View {
     }
 }
 
+enum StudyViewMode {
+    case home
+    case dashboard
+}
+
 struct StudyView: View {
+    @Binding var sidebarSelection: ContentView.SidebarItem?
+    @State private var viewMode: StudyViewMode = .home
+    @State private var selectedFeed: RSSFeed? = nil
+    @State private var sortOrder: StudyHomeView.StudySortOrder = .recent
+
     var body: some View {
-        StudyDashboardView()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("")
+        Group {
+            if viewMode == .home {
+                StudyHomeView(
+                    sidebarSelection: $sidebarSelection,
+                    onSelectFeed: { feed, sort in
+                        self.selectedFeed = feed
+                        self.sortOrder = sort
+                        withAnimation {
+                            viewMode = .dashboard
+                        }
+                    }
+                )
+            } else {
+                StudyDashboardView(
+                    sidebarSelection: $sidebarSelection,
+                    selectedFeed: selectedFeed,
+                    sortOrder: sortOrder,
+                    onBack: {
+                        withAnimation {
+                            viewMode = .home
+                        }
+                    }
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .navigationTitle("")
     }
 }
 
@@ -646,7 +695,13 @@ struct StudyDashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var rssService: RSSService
     @EnvironmentObject var settings: AppSettings
+    @Binding var sidebarSelection: ContentView.SidebarItem?
     @Query private var allFeeds: [RSSFeed]
+    
+    var selectedFeed: RSSFeed?
+    var sortOrder: StudyHomeView.StudySortOrder
+    var onBack: () -> Void
+    
     @State private var selectedJournal: RSSFeed? = nil
     @State private var searchText: String = ""
     @State private var showHistory = false
@@ -655,7 +710,14 @@ struct StudyDashboardView: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                StudyHeader(selectedJournal: $selectedJournal, searchText: $searchText, showHistory: $showHistory, isShuffling: $isShuffling)
+                StudyHeader(
+                    sidebarSelection: $sidebarSelection,
+                    selectedJournal: $selectedJournal,
+                    searchText: $searchText,
+                    showHistory: $showHistory,
+                    isShuffling: $isShuffling,
+                    onBack: onBack
+                )
                 
                 StudyContent(searchText: searchText, selectedJournal: selectedJournal)
             }
@@ -683,11 +745,8 @@ struct StudyDashboardView: View {
         }
         .animation(.easeInOut(duration: 0.4), value: isShuffling)
         .onAppear {
-            if let journal = selectedJournal {
-                rssService.fetchFeed(url: journal.rssURL!, journalName: journal.name)
-            } else {
-                rssService.fetchAllFeeds(feeds: Array(allFeeds))
-            }
+            selectedJournal = selectedFeed
+            applyFeedSelection()
             
             // Initialization: if no feeds exist, add defaults
             if allFeeds.isEmpty {
@@ -697,16 +756,31 @@ struct StudyDashboardView: View {
             }
         }
         .onChange(of: selectedJournal) { _, newValue in
-            if let journal = newValue {
-                rssService.fetchFeed(url: journal.rssURL!, journalName: journal.name)
-            } else {
-                rssService.fetchAllFeeds(feeds: Array(allFeeds))
+            applyFeedSelection()
+        }
+        .onChange(of: allFeeds) { _, _ in
+            if selectedJournal == nil {
+                applyFeedSelection()
             }
+        }
+        .onChange(of: rssService.items.count) { _, _ in
+            rssService.sortItems(by: sortOrder)
         }
         .sheet(isPresented: $showHistory) {
             ReadHistoryView()
         }
         .background(settings.theme.backgroundColor)
+    }
+    
+    private func applyFeedSelection() {
+        if let journal = selectedJournal {
+            rssService.fetchFeed(url: journal.rssURL!, journalName: journal.name)
+        } else {
+            rssService.fetchAllFeeds(feeds: Array(allFeeds))
+        }
+        
+        // Apply sort order
+        rssService.sortItems(by: sortOrder)
     }
 }
 
@@ -715,10 +789,12 @@ struct StudyHeader: View {
     @Query private var feeds: [RSSFeed]
     @EnvironmentObject var rssService: RSSService
     @EnvironmentObject var settings: AppSettings
+    @Binding var sidebarSelection: ContentView.SidebarItem?
     @Binding var selectedJournal: RSSFeed?
     @Binding var searchText: String
     @Binding var showHistory: Bool
     @Binding var isShuffling: Bool
+    var onBack: () -> Void
     @State private var showFeedManager = false
     @State private var shuffleRotation: Double = 0
     @Query private var readArticles: [ReadArticle]
@@ -732,6 +808,15 @@ struct StudyHeader: View {
         VStack(spacing: 12) {
             // Main Toolbar
             HStack(spacing: 20) {
+                Button(action: onBack) {
+                    Image(systemName: "arrow.left")
+                        .font(.system(size: 14, weight: .bold))
+                        .padding(8)
+                        .background(Color.primary.opacity(0.05))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Study")
                         .font(.system(.title2, design: .rounded).bold())

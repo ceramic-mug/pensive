@@ -44,8 +44,24 @@ struct HomeView: View {
                         .foregroundColor(settings.theme.textColor.opacity(0.6))
                 }
                 
-                // Tiles Grid
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 200, maximum: 300), spacing: 20)], spacing: 20) {
+                // Tiles List
+                VStack(spacing: 20) {
+                    HomeTile(
+                        title: "Scripture",
+                        icon: "book",
+                        color: .orange
+                    ) {
+                        sidebarSelection = .scripture
+                    }
+                    
+                    HomeTile(
+                        title: "Prayer",
+                        icon: "flame.fill",
+                        color: .green
+                    ) {
+                        sidebarSelection = .pray
+                    }
+
                     HomeTile(
                         title: "Journal",
                         icon: "pencil.line",
@@ -53,14 +69,6 @@ struct HomeView: View {
                     ) {
                         selectedEntryID = nil
                         sidebarSelection = .journal
-                    }
-                    
-                    HomeTile(
-                        title: "Scripture",
-                        icon: "book",
-                        color: .orange
-                    ) {
-                        sidebarSelection = .scripture
                     }
                     
                     HomeTile(
@@ -72,7 +80,7 @@ struct HomeView: View {
                     }
                 }
                 .padding(.horizontal, 40)
-                .frame(maxWidth: 900)
+                .frame(maxWidth: 350)
                 
                 Spacer()
             }
@@ -118,23 +126,29 @@ struct HomeTile: View {
                 ZStack {
                     Circle()
                         .fill(color.opacity(0.1))
-                        .frame(width: 50, height: 50)
+                        .frame(width: 44, height: 44)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 24))
+                        .font(.system(size: 20))
                         .foregroundColor(color)
                 }
                 
                 Text(title)
-                    .font(.system(.title3, design: .rounded).bold())
+                    .font(getFont(size: 18))
                     .foregroundColor(settings.theme.textColor)
                 
                 Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(settings.theme.textColor.opacity(0.3))
             }
-            .padding(16)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(settings.theme.textColor.opacity(0.05))
+                    .fill(settings.theme.textColor.opacity(0.04))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(settings.theme.textColor.opacity(isHovered ? 0.2 : 0), lineWidth: 1)
@@ -146,6 +160,17 @@ struct HomeTile: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             isHovered = hovering
+        }
+    }
+    
+    private func getFont(size: Double) -> Font {
+        switch settings.font {
+        case .sans:
+            return .system(size: size, design: .default)
+        case .serif:
+            return .system(size: size, design: .serif)
+        case .mono:
+            return .system(size: size, design: .monospaced)
         }
     }
 }

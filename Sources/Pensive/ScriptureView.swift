@@ -12,17 +12,19 @@ enum CalendarViewMode {
 }
 
 struct ScriptureView: View {
+    @Binding var sidebarSelection: ContentView.SidebarItem?
     @EnvironmentObject var settings: AppSettings
     @Environment(\.modelContext) private var modelContext
     @StateObject private var scriptureService = ScriptureService()
     @Query(sort: \ReadDay.dateString, order: .reverse) private var readDays: [ReadDay]
     
+    @State private var showActivity = false
     @State private var selectedDate: Date = Date()
     @State private var viewMode: ScriptureViewMode = .overview
-    @State private var calendarMode: CalendarViewMode = .month
-    @State private var isSettingsExpanded = false
     @State private var showSettings = false
     @State private var isUIVisible = true
+    @State private var isSettingsExpanded = false
+    @State private var showMissedDays = false
     
     private let calendar = Calendar.current
     
@@ -35,8 +37,49 @@ struct ScriptureView: View {
             } else {
                 readingLayout
             }
+            
+            if showActivity && viewMode == .overview {
+                Color.black.opacity(0.2)
+                    .ignoresSafeArea()
+                    .onTapGesture { withAnimation { showActivity = false } }
+                
+                VStack {
+                    Spacer()
+                    UnifiedHeatmapView()
+                        .padding()
+                        .background(settings.theme.backgroundColor)
+                        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 32, topTrailingRadius: 32))
+                        .shadow(radius: 20)
+                }
+                .transition(.move(edge: .bottom))
+                .ignoresSafeArea(edges: .bottom)
+            }
+            
+            if showMissedDays && viewMode == .overview {
+                Color.black.opacity(0.2)
+                    .ignoresSafeArea()
+                    .onTapGesture { withAnimation { showMissedDays = false } }
+                
+                VStack {
+                    Spacer()
+                    MissedReadingsDrawer(
+                        selectedDate: $selectedDate,
+                        viewMode: $viewMode,
+                        showMissedDays: $showMissedDays,
+                        readDays: readDays,
+                        loadReadings: loadReadings
+                    )
+                    .padding()
+                    .background(settings.theme.backgroundColor)
+                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 32, topTrailingRadius: 32))
+                    .shadow(radius: 20)
+                }
+                .transition(.move(edge: .bottom))
+                .ignoresSafeArea(edges: .bottom)
+            }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewMode)
+        .animation(.spring(), value: showActivity)
         .animation(.easeInOut, value: isUIVisible)
         .sheet(isPresented: $showSettings) {
             SettingsView()
@@ -49,104 +92,180 @@ struct ScriptureView: View {
     
     // MARK: - Overview Layout
     private var overviewLayout: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(spacing: 48) {
-                    // 1. Today's Reading Header (Top & Center)
-                    VStack(spacing: 24) {
-                        VStack(spacing: 8) {
-                            Text(selectedDate.formatted(date: .complete, time: .omitted))
-                                .font(.system(.subheadline, design: .rounded).bold())
-                                .foregroundColor(.secondary)
-                                .textCase(.uppercase)
-                                .tracking(1.5)
-                            
-                            Text("Today's Readings")
-                                .font(.system(.largeTitle, design: .rounded).bold())
-                                .foregroundColor(settings.theme.textColor)
-                        }
-                        
-                        let readings = ReadingPlanProvider.shared.getReading(for: selectedDate)
-                        VStack(spacing: 12) {
-                            ForEach(readings, id: \.self) { reading in
-                                HStack {
-                                    Image(systemName: "book.closed")
-                                        .font(.subheadline)
-                                    Text(reading)
-                                        .font(.system(.title3, design: .rounded))
-                                }
-                                .foregroundColor(settings.theme.textColor.opacity(0.8))
-                            }
-                        }
-                        .padding(.vertical, 8)
-                        
-                        Button(action: { 
-                            loadReadings(for: selectedDate)
-                            viewMode = .reading 
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "book.fill")
-                                Text("Read Now")
-                            }
-                            .font(.system(.headline, design: .rounded).bold())
-                            .padding(.horizontal, 40)
-                            .padding(.vertical, 16)
-                            .background(Color.accentColor)
-                            .foregroundColor(.white)
-                            .clipShape(Capsule())
-                            .shadow(color: Color.accentColor.opacity(0.3), radius: 10, x: 0, y: 5)
-                        }
-                        .buttonStyle(.plain)
+        GeometryReader { geo in
+            ZStack(alignment: .topLeading) {
+                // Fixed Header
+                HStack {
+                    Button(action: { sidebarSelection = .home }) {
+                        Image(systemName: "arrow.left")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(settings.theme.textColor.opacity(0.6))
+                            .padding(10)
+                            .background(Circle().fill(settings.theme.textColor.opacity(0.05)))
                     }
-                    .padding(.top, 80)
-                    .frame(maxWidth: .infinity)
-                    
-                    // 2. Reading Progress Section (Secondary)
-                    VStack(spacing: 24) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Reading Progress")
-                                    .font(.system(.headline, design: .rounded))
-                                    .foregroundColor(settings.theme.textColor)
-                                
-                                Text(isTodayRead ? "Reading completed for this day" : "Reading pending")
-                                    .font(.caption)
+                    .buttonStyle(.plain)
+                    .padding()
+                    Spacer()
+                }
+                .padding(.top, 40)
+                .zIndex(2)
+                
+                ScrollView {
+                    VStack(spacing: 40) {
+                        Spacer(minLength: 40)
+                        
+                        VStack(spacing: 32) {
+                            // Today's Reading Header
+                            VStack(spacing: 8) {
+                                Text(selectedDate.formatted(date: .complete, time: .omitted))
+                                    .font(.system(.subheadline, design: .rounded).bold())
                                     .foregroundColor(.secondary)
+                                    .textCase(.uppercase)
+                                    .tracking(1.5)
+                                
+                                Text("Today's Readings")
+                                    .font(.system(size: 48, weight: .bold, design: .serif))
+                                    .foregroundColor(settings.theme.textColor)
                             }
                             
-                            Spacer()
-                            
-                            // View Mode Toggle
-                            Picker("View", selection: $calendarMode) {
-                                Text("Month").tag(CalendarViewMode.month)
-                                Text("Year").tag(CalendarViewMode.year)
+                            let readings = ReadingPlanProvider.shared.getReading(for: selectedDate)
+                            VStack(spacing: 12) {
+                                ForEach(readings, id: \.self) { reading in
+                                    Text(reading)
+                                        .font(.system(.title2, design: .serif))
+                                        .foregroundColor(settings.theme.textColor.opacity(0.8))
+                                }
                             }
-                            .pickerStyle(.segmented)
-                            .frame(width: 150)
                             
-                            Button(action: markAsRead) {
-                                Image(systemName: isTodayRead ? "checkmark.circle.fill" : "circle")
-                                    .foregroundColor(isTodayRead ? .green : .secondary)
-                                    .font(.title3)
+                            Button(action: { 
+                                loadReadings(for: selectedDate)
+                                viewMode = .reading 
+                            }) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "book.fill")
+                                    Text("Read Now")
+                                }
+                                .font(.system(.title3, design: .rounded).bold())
+                                .padding(.horizontal, 60)
+                                .padding(.vertical, 20)
+                                .background(Color.accentColor)
+                                .foregroundColor(.white)
+                                .clipShape(Capsule())
+                                .shadow(color: Color.accentColor.opacity(0.3), radius: 15, x: 0, y: 8)
                             }
                             .buttonStyle(.plain)
-                            .padding(.leading, 8)
+                            
+                            // Recent Progress Section
+                            VStack(spacing: 20) {
+                                HStack {
+                                    Text("Recent Days")
+                                        .font(.system(.subheadline, design: .rounded).bold())
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                }
+                                .frame(maxWidth: 450)
+                                .padding(.horizontal)
+                                
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 12) {
+                                        ForEach(0..<7) { offset in
+                                            let date = calendar.date(byAdding: .day, value: -6 + offset, to: Date())!
+                                            DayReadingCard(
+                                                date: date,
+                                                isSelected: calendar.isDate(date, inSameDayAs: selectedDate),
+                                                isRead: hasRead(date),
+                                                action: {
+                                                    withAnimation {
+                                                        selectedDate = date
+                                                        loadReadings(for: date)
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                    .padding(.vertical, 4)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding(.horizontal, 20)
+                                }
+                                .scrollDisabled(true)
+                                .frame(maxWidth: 450)
+                                
+                                Button(action: { withAnimation { showMissedDays = true } }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "calendar.badge.exclamationmark")
+                                            .font(.system(size: 10, weight: .bold))
+                                        Text("Check Missed Readings")
+                                            .font(.system(.caption, design: .rounded).bold())
+                                    }
+                                    .foregroundColor(.secondary.opacity(0.8))
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.top, 4)
+                            }
+                            .padding(.top, 24)
+                            
+                            Button(action: { withAnimation { showActivity = true } }) {
+                                HStack {
+                                    Image(systemName: "chart.bar.fill")
+                                    Text("Full Activity")
+                                }
+                                .font(.system(.subheadline, design: .rounded).bold())
+                                .foregroundColor(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.top, 20)
                         }
-                        .padding(.horizontal)
+                        .frame(maxWidth: .infinity)
                         
-                        MonthBasedContributionGraph(
-                            selectedDate: $selectedDate,
-                            readDays: readDays,
-                            mode: calendarMode
-                        )
-                        .padding(.bottom, 40)
+                        Spacer(minLength: 40)
                     }
-                    .padding(.top, 20)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: geo.size.height)
                 }
-                .maxInternalWidth(800)
             }
         }
     }
+    
+    private func hasRead(_ date: Date) -> Bool {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let ds = formatter.string(from: date)
+        return readDays.contains { $0.dateString == ds && $0.isRead }
+    }
+}
+
+// MARK: - Day Reading Card
+struct DayReadingCard: View {
+    let date: Date
+    let isSelected: Bool
+    let isRead: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Text(date.formatted(.dateTime.weekday(.abbreviated)))
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+                
+                Text(date.formatted(.dateTime.day()))
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundColor(isSelected ? .white : .primary)
+                
+                Circle()
+                    .fill(isRead ? Color.green : Color.orange)
+                    .frame(width: 6, height: 6)
+            }
+            .frame(width: 50, height: 80)
+            .background(isSelected ? Color.accentColor : Color.primary.opacity(0.05))
+            .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+extension ScriptureView {
+
     
     // MARK: - Reading Layout
     private var readingLayout: some View {
@@ -268,6 +387,10 @@ struct ScriptureView: View {
                     }
                 }
                 .padding(10)
+                .background(Capsule().fill(.ultraThinMaterial))
+                .overlay(Capsule().stroke(settings.theme.textColor.opacity(0.1), lineWidth: 0.5))
+                .padding(.top, 40)
+                .padding(.leading, 70)
                 .transition(.opacity)
             }
         }
@@ -595,25 +718,139 @@ struct MonthBasedContributionGraph: View {
     }
 }
 
-extension View {
-    func maxInternalWidth(_ width: CGFloat) -> some View {
-        self.frame(maxWidth: .infinity)
-            .background(
-                GeometryReader { geo in
-                    Color.clear.preference(key: WidthPreferenceKey.self, value: geo.size.width)
+// MARK: - Missed Readings Drawer
+struct MissedReadingsDrawer: View {
+    @EnvironmentObject var settings: AppSettings
+    @Binding var selectedDate: Date
+    @Binding var viewMode: ScriptureViewMode
+    @Binding var showMissedDays: Bool
+    let readDays: [ReadDay]
+    let loadReadings: (Date) -> Void
+    
+    private let calendar = Calendar.current
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Missed Readings")
+                        .font(.system(.title3, design: .serif).bold())
+                    Text("Current Year")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .textCase(.uppercase)
+                        .tracking(1)
                 }
-            )
-            #if os(macOS)
-            .padding(.horizontal, max(0, (NSScreen.main?.visibleFrame.width ?? 1200 - width) / 4))
-            #else
-            .padding(.horizontal, 16) // Default padding for iOS
-            #endif
+                Spacer()
+                Button(action: { withAnimation { showMissedDays = false } }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.secondary.opacity(0.3))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+            
+            let missedDays = getMissedDays()
+            
+            if missedDays.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 40))
+                        .foregroundColor(.green.opacity(0.5))
+                    Text("All caught up! No missed readings.")
+                        .font(.system(.subheadline, design: .rounded))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 16)], spacing: 16) {
+                        ForEach(missedDays, id: \.self) { date in
+                            Button(action: {
+                                withAnimation {
+                                    selectedDate = date
+                                    loadReadings(date)
+                                    viewMode = .reading
+                                    showMissedDays = false
+                                }
+                            }) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(date.formatted(date: .abbreviated, time: .omitted))
+                                        .font(.system(.caption, design: .rounded).bold())
+                                        .foregroundColor(.secondary)
+                                    
+                                    let readings = ReadingPlanProvider.shared.getReading(for: date)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        ForEach(readings.prefix(2), id: \.self) { reading in
+                                            Text(reading)
+                                                .font(.system(.subheadline, design: .serif))
+                                                .foregroundColor(settings.theme.textColor)
+                                                .lineLimit(1)
+                                        }
+                                        if readings.count > 2 {
+                                            Text("+\(readings.count - 2) more")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                }
+                                .padding()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color.primary.opacity(0.04))
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                .frame(maxHeight: 400)
+            }
+        }
+        .padding(.vertical, 24)
+        .background(settings.theme.backgroundColor)
     }
-}
-
-struct WidthPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
+    
+    private func getMissedDays() -> [Date] {
+        var missed: [Date] = []
+        let today = Date()
+        
+        // Ensure we handle current year correctly
+        let currentYear = calendar.component(.year, from: today)
+        guard let startOfYear = calendar.date(from: DateComponents(year: currentYear, month: 1, day: 1)) else { return [] }
+        
+        // Find total days from start of year to today
+        let components = calendar.dateComponents([.day], from: startOfYear, to: today)
+        let daysSinceStart = components.day ?? 0
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        
+        for offset in 0...daysSinceStart {
+            guard let date = calendar.date(byAdding: .day, value: offset, to: startOfYear) else { continue }
+            
+            // Normalize dates to midnight for comparison
+            let normalizedDate = calendar.startOfDay(for: date)
+            let normalizedToday = calendar.startOfDay(for: today)
+            
+            // Don't include today if it hasn't been read yet (it's "current", not "missed")
+            if normalizedDate >= normalizedToday { break }
+            
+            let ds = formatter.string(from: normalizedDate)
+            let isRead = readDays.contains { $0.dateString == ds && $0.isRead }
+            
+            if !isRead {
+                missed.append(normalizedDate)
+            }
+        }
+        
+        return missed.reversed() // Show most recent first
     }
 }
