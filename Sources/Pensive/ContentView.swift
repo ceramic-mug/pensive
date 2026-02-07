@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 import SwiftData
 import MapKit
@@ -11,8 +10,13 @@ struct ContentView: View {
     
     @State private var selectedEntryID: UUID?
     @State private var searchText: String = ""
+    #if os(macOS)
     @State private var columnVisibility = NavigationSplitViewVisibility.detailOnly
-    @State private var sidebarSelection: SidebarItem = .home
+    #else
+    @State private var columnVisibility = NavigationSplitViewVisibility.automatic
+    #endif
+    @State private var sidebarSelection: SidebarItem? = .home
+    @Environment(\.horizontalSizeClass) var sizeClass
     
     enum SidebarItem: String, CaseIterable, Identifiable {
         case home = "Home"
@@ -42,61 +46,109 @@ struct ContentView: View {
         }
     }
     
+    @State private var showSettings = false
+    
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            VStack(spacing: 0) {
-                List {
-                    Section {
-                        ForEach(SidebarItem.allCases) { item in
-                            Button(action: { sidebarSelection = item }) {
-                                Label(item.rawValue, systemImage: item.icon)
+        Group {
+            if sizeClass == .compact {
+                TabView(selection: Binding(get: { sidebarSelection ?? .home }, set: { sidebarSelection = $0 })) {
+                    HomeView(sidebarSelection: $sidebarSelection, selectedEntryID: $selectedEntryID)
+                        .tabItem {
+                            Label("Home", systemImage: "house")
+                        }
+                        .tag(SidebarItem.home)
+                    
+                    JournalHomeView(
+                        addNewEntry: addNewEntry,
+                        selectEntry: { entry in 
+                            selectedEntryID = entry.id
+                            // Logic to show entry detail would go here or be handled by navigation
+                        }
+                    )
+                    .tabItem {
+                        Label("Journal", systemImage: "pencil.line")
+                    }
+                    .tag(SidebarItem.journal)
+                    
+                    ScriptureView()
+                        .tabItem {
+                            Label("Scripture", systemImage: "book")
+                        }
+                        .tag(SidebarItem.scripture)
+                    
+                    StudyView()
+                        .tabItem {
+                            Label("Study", systemImage: "graduationcap")
+                        }
+                        .tag(SidebarItem.study)
+                }
+                .accentColor(.accentColor)
+            } else {
+                NavigationSplitView(columnVisibility: $columnVisibility) {
+                    List(selection: $sidebarSelection) {
+                        Section {
+                            ForEach(SidebarItem.allCases) { item in
+                                NavigationLink(value: item) {
+                                    Label(item.rawValue, systemImage: item.icon)
+                                }
+                                .foregroundColor(sidebarSelection == item ? .accentColor : .primary)
                             }
-                            .buttonStyle(.plain)
-                            .foregroundColor(sidebarSelection == item ? .accentColor : .primary)
-                            .padding(.vertical, 4)
                         }
                     }
+                    .listStyle(.sidebar)
+                    .navigationTitle("Pensive")
+                } detail: {
+                    if sidebarSelection == .home {
+                        HomeView(
+                            sidebarSelection: Binding(
+                                get: { sidebarSelection ?? .home },
+                                set: { sidebarSelection = $0 }
+                            ),
+                            selectedEntryID: $selectedEntryID
+                        )
+                    } else if sidebarSelection == .journal {
+                        JournalHomeView(
+                            addNewEntry: addNewEntry,
+                            selectEntry: { entry in selectedEntryID = entry.id }
+                        )
+                    } else if sidebarSelection == .scripture {
+                        ScriptureView()
+                    } else {
+                        StudyView()
+                    }
                 }
-                .listStyle(.sidebar)
-            }
-            .navigationTitle("")
-        } detail: {
-            if sidebarSelection == .home {
-                HomeView(
-                    sidebarSelection: $sidebarSelection,
-                    selectedEntryID: $selectedEntryID
-                )
-            } else if sidebarSelection == .journal {
-                JournalView(
-                    entries: entries,
-                    selectedEntryID: $selectedEntryID,
-                    columnVisibility: $columnVisibility,
-                    addNewEntry: addNewEntry
-                )
-            } else if sidebarSelection == .scripture {
-                ScriptureView()
-            } else {
-                StudyView()
+                .modify {
+                    #if os(macOS)
+                    if #available(macOS 15.0, *) {
+                        $0.windowToolbarFullScreenVisibility(.onHover)
+                    } else {
+                        $0
+                    }
+                    #else
+                    $0
+                    #endif
+                }
             }
         }
-        .modify {
-            if #available(macOS 15.0, *) {
-                $0.windowToolbarFullScreenVisibility(.onHover)
-            } else {
-                $0
-            }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowSettings"))) { _ in
+            showSettings = true
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
         }
         .background(
-                Group {
-                    Button("") { settings.textSize = min(72, settings.textSize + 2) }
-                        .keyboardShortcut("+", modifiers: .command)
-                    Button("") { settings.textSize = max(12, settings.textSize - 2) }
-                        .keyboardShortcut("-", modifiers: .command)
-                }
-                .opacity(0)
-            )
-            .preferredColorScheme(settings.theme == .dark ? .dark : .light)
-        }
+            Group {
+                #if os(macOS)
+                Button("") { settings.textSize = min(72, settings.textSize + 2) }
+                    .keyboardShortcut("+", modifiers: .command)
+                Button("") { settings.textSize = max(12, settings.textSize - 2) }
+                    .keyboardShortcut("-", modifiers: .command)
+                #endif
+            }
+            .opacity(0)
+        )
+        .preferredColorScheme(settings.theme == .dark ? .dark : .light)
+    }
         
     private func autoSelectTodayEntry() {
         let now = Date()
@@ -178,7 +230,7 @@ struct JournalView: View {
 
 struct StudyView: View {
     var body: some View {
-        MedicalJournalBrowserView()
+        StudyDashboardView()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("")
     }
@@ -244,7 +296,12 @@ struct DetailView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .navigation) {
+            #if os(macOS)
+            let placement = ToolbarItemPlacement.navigation
+            #else
+            let placement = ToolbarItemPlacement.topBarTrailing
+            #endif
+            ToolbarItem(placement: placement) {
                 ExpandingSettingsMenu(
                     entry: entry,
                     isExpanded: $isMenuExpanded,
@@ -255,7 +312,9 @@ struct DetailView: View {
                 }
             }
         }
+        #if os(macOS)
         .toolbarBackground(.hidden, for: .windowToolbar)
+        #endif
     }
     
     private var headerFont: Font {
@@ -488,7 +547,11 @@ struct ExpandingSettingsMenu: View {
                         Text(font.rawValue.capitalized).tag(font)
                     }
                 }
+                #if os(macOS)
                 .pickerStyle(.segmented)
+                #else
+                .pickerStyle(.menu)
+                #endif
                 .labelsHidden()
                 
                 Divider()
@@ -579,142 +642,389 @@ struct ToolbarIconButton: View {
     }
 }
 
-struct MedicalJournalBrowserView: View {
+struct StudyDashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var rssService: RSSService
     @EnvironmentObject var settings: AppSettings
-    @Query(sort: \ReadArticle.dateRead, order: .reverse) private var readArticles: [ReadArticle]
-    @State private var selectedJournal: MedicalJournal? = MedicalJournal.defaults[0]
-    @State private var searchText: String = "" // Added for article search
+    @Query private var allFeeds: [RSSFeed]
+    @State private var selectedJournal: RSSFeed? = nil
+    @State private var searchText: String = ""
     @State private var showHistory = false
-    
-    var dailyReadCount: Int {
-        let calendar = Calendar.current
-        return readArticles.filter { calendar.isDateInToday($0.dateRead) }.count
-    }
+    @State private var isShuffling = false
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Study Stats Bar
-            HStack {
-                Text("Daily Progress:")
-                    .font(.system(.caption, design: .rounded).bold())
+        ZStack {
+            VStack(spacing: 0) {
+                StudyHeader(selectedJournal: $selectedJournal, searchText: $searchText, showHistory: $showHistory, isShuffling: $isShuffling)
                 
-                HStack(spacing: 4) {
-                    ForEach(0..<5) { index in
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(index < dailyReadCount ? Color.accentColor : Color.primary.opacity(0.1))
-                            .frame(width: 20, height: 6)
-                    }
-                }
-                
-                Text("\(dailyReadCount)/5 articles")
-                    .font(.system(.caption, design: .rounded))
-                    .foregroundColor(.secondary)
-                
-                Spacer()
-                
-                if dailyReadCount >= 5 {
-                    Text("Goal Met! 🎓")
-                        .font(.system(.caption, design: .rounded).bold())
-                        .foregroundColor(.green)
-                }
-                
-                Button(action: { showHistory = true }) {
-                    Label("History", systemImage: "clock.arrow.circlepath")
-                        .font(.system(.caption, design: .rounded).bold())
-                        .foregroundColor(.accentColor)
-                }
-                .buttonStyle(.plain)
-                .padding(.leading, 8)
+                StudyContent(searchText: searchText, selectedJournal: selectedJournal)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(Color.primary.opacity(0.03))
+            .blur(radius: isShuffling ? 10 : 0)
+            .opacity(isShuffling ? 0.3 : 1.0)
             
-            // Journal Selector Header
-            HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Study")
-                        .font(.system(.title2, design: .rounded).bold())
-                    Text("Medical Journals")
-                        .font(.system(.caption, design: .rounded))
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                // Search Bar
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    TextField("Search articles...", text: $searchText)
-                        .textFieldStyle(.plain)
-                }
-                .padding(8)
-                .background(Color.primary.opacity(0.05))
-                .cornerRadius(8)
-                .frame(width: 250)
-                
-                Picker("Select Journal", selection: $selectedJournal) {
-                    Text("All Journals").tag(Optional<MedicalJournal>.none)
-                    Divider()
+            if isShuffling {
+                ZStack {
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea()
                     
-                    let layers = ["Current Issues"]
-                    
-                    ForEach(layers, id: \.self) { layer in
-                        Section(header: Text(layer)) {
-                            ForEach(MedicalJournal.defaults.filter { $0.category == layer }) { journal in
-                                Text(journal.name).tag(Optional(journal))
-                            }
-                        }
+                    VStack(spacing: 16) {
+                        Image(systemName: "shuffle")
+                            .font(.system(size: 44, weight: .bold))
+                            .foregroundColor(.white)
+                            .symbolEffect(.pulse, options: .repeating)
+                        
+                        Text("Shuffling...")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
                     }
-                }
-                .pickerStyle(.menu)
-                .frame(width: 200)
-            }
-            .padding()
-            .background(.ultraThinMaterial)
-            
-            if rssService.isFetching {
-                VStack {
-                    Spacer()
-                    ProgressView("Fetching latest articles...")
-                    Spacer()
-                }
-            } else {
-                ScrollView {
-                    let filteredItems = rssService.items.filter { item in
-                        searchText.isEmpty || 
-                        item.cleanTitle.localizedCaseInsensitiveContains(searchText) || 
-                        item.cleanDescription.localizedCaseInsensitiveContains(searchText)
-                    }
-                    
-                    MasonryVStack(columns: 2, data: filteredItems) { item in
-                        StudyArticleCard(item: item, journalName: item.journalName, category: MedicalJournal.defaults.first(where: { $0.name == item.journalName })?.category ?? "")
-                    }
-                    .padding()
+                    .transition(.opacity.combined(with: .scale))
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.4), value: isShuffling)
         .onAppear {
             if let journal = selectedJournal {
-                rssService.fetchFeed(url: journal.rssURL, journalName: journal.name)
+                rssService.fetchFeed(url: journal.rssURL!, journalName: journal.name)
             } else {
-                rssService.fetchAllFeeds(journals: MedicalJournal.defaults)
+                rssService.fetchAllFeeds(feeds: Array(allFeeds))
+            }
+            
+            // Initialization: if no feeds exist, add defaults
+            if allFeeds.isEmpty {
+                for feed in RSSFeed.defaults {
+                    modelContext.insert(feed)
+                }
             }
         }
-        .onChange(of: selectedJournal) { oldValue, newValue in
+        .onChange(of: selectedJournal) { _, newValue in
             if let journal = newValue {
-                rssService.fetchFeed(url: journal.rssURL, journalName: journal.name)
+                rssService.fetchFeed(url: journal.rssURL!, journalName: journal.name)
             } else {
-                rssService.fetchAllFeeds(journals: MedicalJournal.defaults)
+                rssService.fetchAllFeeds(feeds: Array(allFeeds))
             }
         }
         .sheet(isPresented: $showHistory) {
             ReadHistoryView()
         }
-        .background(Color(.windowBackgroundColor)) // Professional window background instead of journal theme
+        .background(settings.theme.backgroundColor)
+    }
+}
+
+struct StudyHeader: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query private var feeds: [RSSFeed]
+    @EnvironmentObject var rssService: RSSService
+    @EnvironmentObject var settings: AppSettings
+    @Binding var selectedJournal: RSSFeed?
+    @Binding var searchText: String
+    @Binding var showHistory: Bool
+    @Binding var isShuffling: Bool
+    @State private var showFeedManager = false
+    @State private var shuffleRotation: Double = 0
+    @Query private var readArticles: [ReadArticle]
+    
+    var dailyReadCount: Int {
+        let calendar = Calendar.current
+        return readArticles.filter { calendar.isDateInToday($0.dateRead) }.count
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            // Main Toolbar
+            HStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Study")
+                        .font(.system(.title2, design: .rounded).bold())
+                    
+                    HStack(spacing: 8) {
+                        Image(systemName: "graduationcap.fill")
+                            .font(.system(size: 10))
+                        Text("\(dailyReadCount) articles today")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                    }
+                    .foregroundColor(.accentColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.accentColor.opacity(0.1))
+                    .cornerRadius(12)
+                }
+                
+                Spacer()
+                
+                // Search Bar
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.secondary)
+                    TextField("Search your feeds...", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.primary.opacity(0.05))
+                .cornerRadius(10)
+                .frame(maxWidth: 300)
+                
+                // Controls Group
+                HStack(spacing: 16) {
+                    // Filter
+                    Picker("Filter", selection: $settings.studyFilter) {
+                        Text("All").tag(StudyFilter.all)
+                        Text("Unread").tag(StudyFilter.unread)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 130)
+                    .controlSize(.small)
+                    
+                    // Layout & Density
+                    HStack(spacing: 0) {
+                        Button(action: { settings.studyLayoutStyle = .grid }) {
+                            Image(systemName: "square.grid.2x2")
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                        .padding(8)
+                        .background(settings.studyLayoutStyle == .grid ? Color.accentColor.opacity(0.15) : Color.clear)
+                        .foregroundColor(settings.studyLayoutStyle == .grid ? .accentColor : .secondary)
+                        
+                        Divider().frame(height: 16)
+                        
+                        Button(action: { settings.studyLayoutStyle = .list }) {
+                            Image(systemName: "list.bullet")
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                        .padding(8)
+                        .background(settings.studyLayoutStyle == .list ? Color.accentColor.opacity(0.15) : Color.clear)
+                        .foregroundColor(settings.studyLayoutStyle == .list ? .accentColor : .secondary)
+                    }
+                    .background(Color.primary.opacity(0.05))
+                    .cornerRadius(8)
+                    
+                    if settings.studyLayoutStyle == .grid {
+                        HStack(spacing: 4) {
+                            Button(action: { if settings.studyColumns > 1 { settings.studyColumns -= 1 } }) {
+                                Image(systemName: "minus")
+                                    .font(.system(size: 10, weight: .bold))
+                            }
+                            Text("\(settings.studyColumns)")
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                .frame(width: 20)
+                            Button(action: { if settings.studyColumns < 6 { settings.studyColumns += 1 } }) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 10, weight: .bold))
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(Color.primary.opacity(0.05))
+                        .cornerRadius(8)
+                        .foregroundColor(.secondary)
+                    }
+                }
+                
+                // Actions
+                HStack(spacing: 8) {
+                    Button(action: {
+                        // 1. Start the dimming animation immediately
+                        withAnimation(.easeIn(duration: 0.3)) {
+                            isShuffling = true
+                        }
+                        
+                        // 2. Perform the data shuffle after the screen is sufficiently dimmed
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            // Non-animated shuffle to avoid jumping behind the blur
+                            rssService.shuffleItemsImmediate()
+                            
+                            // 3. Wait a moment at maximum dimness for a satisfying feel
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                withAnimation(.easeOut(duration: 0.4)) {
+                                    isShuffling = false
+                                }
+                            }
+                        }
+                    }) {
+                        Image(systemName: "shuffle")
+                            .rotationEffect(.degrees(shuffleRotation))
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.accentColor)
+                            .frame(width: 32, height: 32)
+                            .background(Color.accentColor.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: { showHistory = true }) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.secondary)
+                            .frame(width: 32, height: 32)
+                            .background(Color.primary.opacity(0.05))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: { showFeedManager = true }) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(width: 32, height: 32)
+                            .background(Color.accentColor)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
+            
+            // Source Picker
+            HStack {
+                Text("Source:")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.secondary)
+                
+                Picker("Journal", selection: $selectedJournal) {
+                    Text("All Sources").tag(Optional<RSSFeed>.none)
+                    Divider()
+                    ForEach(feeds) { feed in
+                        Text(feed.name).tag(Optional(feed))
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(width: 200)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 12)
+        }
+        .background(settings.theme.backgroundColor)
+        .overlay(Divider(), alignment: .bottom)
+        .sheet(isPresented: $showFeedManager) {
+            FeedManagementView()
+        }
+    }
+}
+
+struct StudyContent: View {
+    @EnvironmentObject var rssService: RSSService
+    @EnvironmentObject var settings: AppSettings
+    @Query private var readArticles: [ReadArticle]
+    let searchText: String
+    let selectedJournal: RSSFeed?
+    
+    var filteredItems: [RSSItem] {
+        var items = rssService.items
+        
+        // Unread filter
+        if settings.studyFilter == .unread {
+            let readUrls = Set(readArticles.map { $0.url })
+            items = items.filter { !readUrls.contains($0.link) }
+        }
+        
+        // Search filter
+        if !searchText.isEmpty {
+            items = items.filter { 
+                $0.cleanTitle.localizedCaseInsensitiveContains(searchText) || 
+                $0.cleanDescription.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+        
+        return items
+    }
+    
+    var body: some View {
+        if rssService.isFetching {
+            VStack {
+                Spacer()
+                ProgressView()
+                    .scaleEffect(1.5)
+                Text("Updating your library...")
+                    .font(.system(.subheadline, design: .rounded))
+                    .foregroundColor(.secondary)
+                    .padding(.top)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                if settings.studyLayoutStyle == .grid {
+                    MasonryVStack(columns: settings.studyColumns, data: filteredItems) { item in
+                        StudyArticleCard(item: item, journalName: item.journalName, category: "Article")
+                            .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .opacity))
+                    }
+                    .padding()
+                } else {
+                    LazyVStack(spacing: 1) {
+                        ForEach(filteredItems) { item in
+                            StudyArticleRow(item: item)
+                        }
+                    }
+                    .padding(.vertical)
+                }
+            }
+            .animation(.default, value: filteredItems)
+        }
+    }
+}
+
+struct StudyArticleRow: View {
+    @Environment(\.modelContext) private var modelContext
+    let item: RSSItem
+    @Query private var readArticles: [ReadArticle]
+    @EnvironmentObject var settings: AppSettings
+    @Environment(\.openURL) private var openURL
+    
+    var isRead: Bool {
+        readArticles.contains { $0.url == item.link }
+    }
+    
+    var body: some View {
+        Button(action: {
+            if let url = URL(string: item.link) {
+                openURL(url)
+                if !isRead {
+                    let newRead = ReadArticle(url: item.link, title: item.cleanTitle, category: "Article", publicationName: item.journalName)
+                    modelContext.insert(newRead)
+                }
+            }
+        }) {
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.cleanTitle)
+                        .font(.system(.headline, design: .serif))
+                        .foregroundColor(settings.theme.textColor.opacity(isRead ? 0.5 : 1.0))
+                        .lineLimit(2)
+                    
+                    HStack {
+                        Text(item.journalName)
+                            .font(.caption.bold())
+                            .foregroundColor(.accentColor)
+                        Text("•")
+                        Text(item.date.formatted(date: .abbreviated, time: .omitted))
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                if isRead {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green.opacity(0.3))
+                }
+                
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary.opacity(0.3))
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 12)
+            .background(settings.theme.backgroundColor)
+            .overlay(Divider(), alignment: .bottom)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -724,6 +1034,7 @@ struct ReadHistoryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \ReadArticle.dateRead, order: .reverse) private var readArticles: [ReadArticle]
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var settings: AppSettings
     @State private var filterFlaggedOnly = false
     
     var filteredArticles: [ReadArticle] {
@@ -761,33 +1072,33 @@ struct ReadHistoryView: View {
             } else {
                 List {
                     ForEach(filteredArticles) { article in
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
+                        HStack(spacing: 16) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text(article.title)
-                                    .font(.headline)
-                                Spacer()
-                                Button(action: { article.isFlagged.toggle() }) {
-                                    Image(systemName: article.isFlagged ? "star.fill" : "star")
-                                        .foregroundColor(article.isFlagged ? .orange : .secondary)
+                                    .font(.system(.headline, design: .serif))
+                                    .foregroundColor(settings.theme.textColor)
+                                
+                                HStack {
+                                    Text(article.publicationName)
+                                        .font(.caption.bold())
+                                        .foregroundColor(.accentColor)
+                                    Text("•")
+                                    Text(article.dateRead.formatted(date: .abbreviated, time: .shortened))
                                 }
-                                .buttonStyle(.plain)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                             }
                             
-                            HStack {
-                                Text(article.publicationName)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text("•")
-                                Text(article.category)
-                                    .font(.caption)
-                                    .foregroundColor(.accentColor)
-                                Spacer()
-                                Text(article.dateRead.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
+                            Spacer()
+                            
+                            Button(action: { article.isFlagged.toggle() }) {
+                                Image(systemName: article.isFlagged ? "star.fill" : "star")
+                                    .foregroundColor(article.isFlagged ? .orange : .secondary)
                             }
+                            .buttonStyle(.plain)
                         }
                         .padding(.vertical, 8)
+                        .listRowBackground(settings.theme.backgroundColor)
                     }
                     .onDelete { indexSet in
                         for index in indexSet {
@@ -795,9 +1106,12 @@ struct ReadHistoryView: View {
                         }
                     }
                 }
+                .listStyle(.plain)
             }
         }
+        #if os(macOS)
         .frame(minWidth: 500, minHeight: 400)
+        #endif
     }
 }
 
@@ -808,4 +1122,3 @@ extension View {
         transform(self)
     }
 }
-#endif

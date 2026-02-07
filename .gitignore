@@ -2,6 +2,12 @@
 .build/
 .swiftpm/
 Packages/
-DerivedData/
 *.app/
 *.iconset/
+
+# Xcode
+xcuserdata/
+*.xcodeproj/project.xcworkspace/
+*.xcodeproj/xcuserdata/
+DerivedData/
+.swiftpm/

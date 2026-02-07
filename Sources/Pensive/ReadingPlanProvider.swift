@@ -21,16 +21,16 @@ class ReadingPlanProvider {
     }
     
     private func loadPlan() {
-        guard let url = Bundle.module.url(forResource: "plan", withExtension: "json"),
-              let data = try? Data(contentsOf: url) else {
-            print("Failed to load plan.json")
+        guard let url = Bundle.main.url(forResource: "plan", withExtension: "json") else {
+            print("Failed to find plan.json in main bundle")
             return
         }
         
         do {
+            let data = try Data(contentsOf: url)
             plan = try JSONDecoder().decode([String: ReadingEntry].self, from: data)
         } catch {
-            print("Failed to decode plan.json: \(error)")
+            print("Failed to load/decode plan.json: \(error)")
         }
     }
     

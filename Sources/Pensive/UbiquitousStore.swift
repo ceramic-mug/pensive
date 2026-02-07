@@ -1,10 +1,12 @@
 import Foundation
 import Combine
 
+@MainActor
 class UbiquitousStore: ObservableObject {
     static let shared = UbiquitousStore()
     private let store = NSUbiquitousKeyValueStore.default
     private var cancellables = Set<AnyCancellable>()
+    private var mirroredKeys: [String] = []
     
     private init() {
         NotificationCenter.default.publisher(for: NSUbiquitousKeyValueStore.didChangeExternallyNotification)
@@ -14,6 +16,33 @@ class UbiquitousStore: ObservableObject {
             .store(in: &cancellables)
         
         store.synchronize()
+    }
+    
+    /// Sets up mirroring for a list of keys. These keys will be automatically synced from cloud to local on change,
+    /// and should be manually pushed to cloud when changed locally using `set(_:forKey:)`.
+    func setupMirroring(keys: [String]) {
+        self.mirroredKeys = keys
+        updateFromCloud(keys: keys)
+        
+        // Listen for local changes to mirrored keys
+        for key in keys {
+            NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+                .sink { [weak self] _ in
+                    self?.checkpointLocalToCloud(key: key)
+                }
+                .store(in: &cancellables)
+        }
+    }
+    
+    private func checkpointLocalToCloud(key: String) {
+        let localValue = UserDefaults.standard.object(forKey: key)
+        let cloudValue = store.object(forKey: key)
+        
+        // Only push if different to avoid cycles
+        if let local = localValue, "\(local)" != "\(cloudValue ?? "")" {
+            store.set(local, forKey: key)
+            store.synchronize()
+        }
     }
     
     func set(_ value: Any?, forKey key: String) {
@@ -53,6 +82,9 @@ class UbiquitousStore: ObservableObject {
                         UserDefaults.standard.set(value, forKey: key)
                     }
                 }
+            } else if reason == NSUbiquitousKeyValueStoreInitialSyncChange {
+                // For initial sync, update all mirrored keys
+                updateFromCloud(keys: mirroredKeys)
             }
         }
     }

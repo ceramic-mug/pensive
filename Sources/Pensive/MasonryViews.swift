@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MasonryVStack<Data: RandomAccessCollection, Content: View>: View where Data.Element: Identifiable {
+    @Environment(\.horizontalSizeClass) var sizeClass
     let columns: Int
     let data: Data
     let content: (Data.Element) -> Content
@@ -12,10 +13,12 @@ struct MasonryVStack<Data: RandomAccessCollection, Content: View>: View where Da
     }
     
     var body: some View {
+        let actualColumns = sizeClass == .compact ? 1 : max(1, columns)
+        
         HStack(alignment: .top, spacing: 16) {
-            ForEach(0..<columns, id: \.self) { columnIndex in
+            ForEach(0..<actualColumns, id: \.self) { columnIndex in
                 LazyVStack(spacing: 16) {
-                    ForEach(columnItems(for: columnIndex)) { item in
+                    ForEach(columnItems(for: columnIndex, actualColumns: actualColumns)) { item in
                         content(item)
                     }
                 }
@@ -23,14 +26,11 @@ struct MasonryVStack<Data: RandomAccessCollection, Content: View>: View where Da
         }
     }
     
-    private func columnItems(for index: Int) -> [Data.Element] {
-        // Distribute items round-robin style
-        // Index 0: 0, 2, 4...
-        // Index 1: 1, 3, 5...
+    private func columnItems(for index: Int, actualColumns: Int) -> [Data.Element] {
         var items = [Data.Element]()
         var currentIndex = 0
         for item in data {
-            if currentIndex % columns == index {
+            if currentIndex % actualColumns == index {
                 items.append(item)
             }
             currentIndex += 1

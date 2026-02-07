@@ -215,7 +215,7 @@ struct NativeTextView: UIViewRepresentable {
     var selectionColor: Color
     var horizontalPadding: CGFloat
     
-    // Symbol Picker State (Stubbed for iOS v1)
+    // Symbol Picker State
     @Binding var isPickerPresented: Bool
     @Binding var pickerQuery: String
     @Binding var pickerPosition: CGPoint
@@ -245,6 +245,8 @@ struct NativeTextView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UITextView, context: Context) {
+        context.coordinator.parent = self
+        
         if uiView.text != text {
             uiView.text = text
         }
@@ -263,7 +265,7 @@ struct NativeTextView: UIViewRepresentable {
         }
         
         uiView.textColor = UIColor(textColor)
-        // Selection color API is limited in UIKit public API, skipping for v1
+        uiView.tintColor = UIColor(selectionColor)
         
         updateHeight(uiView)
     }
@@ -289,8 +291,41 @@ struct NativeTextView: UIViewRepresentable {
         }
 
         func textViewDidChange(_ textView: UITextView) {
-            parent.text = textView.text
+            let content = textView.text ?? ""
+            if parent.text != content {
+                parent.text = content
+            }
             parent.updateHeight(textView)
+            
+            // Symbol Trigger Detection
+            let range = textView.selectedRange
+            if range.length == 0 && range.location > 0 {
+                let nsString = content as NSString
+                let textBeforeCursor = nsString.substring(to: range.location)
+                
+                if let lastSlashIndex = textBeforeCursor.lastIndex(of: "/") {
+                    let query = String(textBeforeCursor.suffix(from: textBeforeCursor.index(after: lastSlashIndex)))
+                    
+                    // Check if "/" is at start of line or after space
+                    let prefix = textBeforeCursor.prefix(upTo: lastSlashIndex)
+                    if prefix.isEmpty || prefix.hasSuffix(" ") || prefix.hasSuffix("\n") {
+                        if !query.contains(" ") {
+                            parent.pickerQuery = query
+                            parent.isPickerPresented = true
+                            
+                            // Calculate cursor position for popover/overlay
+                            if let selectedRange = textView.selectedTextRange {
+                                let rect = textView.caretRect(for: selectedRange.end)
+                                parent.pickerPosition = textView.convert(rect.origin, to: nil)
+                            }
+                            return
+                        }
+                    }
+                }
+            }
+            if parent.isPickerPresented {
+                parent.isPickerPresented = false
+            }
         }
         
         @objc func doneTapped() {

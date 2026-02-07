@@ -21,6 +21,8 @@ struct ScriptureView: View {
     @State private var viewMode: ScriptureViewMode = .overview
     @State private var calendarMode: CalendarViewMode = .month
     @State private var isSettingsExpanded = false
+    @State private var showSettings = false
+    @State private var isUIVisible = true
     
     private let calendar = Calendar.current
     
@@ -35,6 +37,11 @@ struct ScriptureView: View {
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewMode)
+        .animation(.easeInOut, value: isUIVisible)
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(settings)
+        }
         .onAppear {
             loadReadings(for: selectedDate)
         }
@@ -173,6 +180,12 @@ struct ScriptureView: View {
                             .padding(.horizontal, calculatedPadding)
                             .padding(.top, 140)
                             .padding(.bottom, 120)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                withAnimation(.easeInOut) {
+                                    isUIVisible.toggle()
+                                }
+                            }
                             
                             // Bottom sentinel for auto-marking
                             Color.clear
@@ -189,68 +202,74 @@ struct ScriptureView: View {
             }
             
             // Floating Toolbar (Matches Journal)
-            HStack(spacing: 0) {
-                // Settings Toggle
-                Button(action: {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        isSettingsExpanded.toggle()
+            if isUIVisible {
+                HStack(spacing: 0) {
+                    // Settings Toggle
+                    Button(action: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            isSettingsExpanded.toggle()
+                        }
+                    }) {
+                        Image(systemName: isSettingsExpanded ? "chevron.left" : "ellipsis.circle")
+                            .font(.system(size: 17))
+                            .foregroundColor(settings.theme.textColor.opacity(0.3))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
-                }) {
-                    Image(systemName: isSettingsExpanded ? "chevron.left" : "ellipsis.circle")
-                        .font(.system(size: 17))
-                        .foregroundColor(settings.theme.textColor.opacity(0.3))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                
-                if isSettingsExpanded {
-                    HStack(spacing: 12) {
-                        // Home Button
-                        Button(action: { viewMode = .overview }) {
-                            Image(systemName: "house")
-                                .font(.system(size: 15))
-                                .foregroundColor(settings.theme.textColor.opacity(0.7))
-                        }
-                        .buttonStyle(.plain)
-                        .help("Back to Overview")
-                        
-                        Divider().frame(height: 16)
-                        
-                        HStack(spacing: 8) {
-                            Button(action: { settings.textSize = max(12, settings.textSize - 1) }) {
-                                Image(systemName: "textformat.size.smaller")
+                    .buttonStyle(.plain)
+                    
+                    if isSettingsExpanded {
+                        HStack(spacing: 12) {
+                            // Home Button
+                            Button(action: { 
+                                viewMode = .overview 
+                                isUIVisible = true
+                            }) {
+                                Image(systemName: "house")
+                                    .font(.system(size: 15))
+                                    .foregroundColor(settings.theme.textColor.opacity(0.7))
                             }
                             .buttonStyle(.plain)
-                            Button(action: { settings.textSize = min(72, settings.textSize + 1) }) {
-                                Image(systemName: "textformat.size.larger")
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        
-                        HStack(spacing: 6) {
-                            ForEach(AppTheme.allCases) { theme in
-                                Button(action: { settings.theme = theme }) {
-                                    Circle()
-                                        .fill(theme.backgroundColor)
-                                        .frame(width: 14, height: 14)
-                                        .overlay(
-                                            Circle().stroke(settings.theme.textColor.opacity(settings.theme == theme ? 0.8 : 0.2), lineWidth: 1)
-                                        )
+                            .help("Back to Overview")
+                            
+                            Divider().frame(height: 16)
+                            
+                            HStack(spacing: 8) {
+                                Button(action: { settings.textSize = max(12, settings.textSize - 1) }) {
+                                    Image(systemName: "textformat.size.smaller")
+                                }
+                                .buttonStyle(.plain)
+                                Button(action: { settings.textSize = min(72, settings.textSize + 1) }) {
+                                    Image(systemName: "textformat.size.larger")
                                 }
                                 .buttonStyle(.plain)
                             }
+                            
+                            HStack(spacing: 6) {
+                                ForEach(AppTheme.allCases) { theme in
+                                    Button(action: { settings.theme = theme }) {
+                                        Circle()
+                                            .fill(theme.backgroundColor)
+                                            .frame(width: 14, height: 14)
+                                            .overlay(
+                                                Circle().stroke(settings.theme.textColor.opacity(settings.theme == theme ? 0.8 : 0.2), lineWidth: 1)
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            
+                            ScriptureTypographyMenu(viewMode: $viewMode)
+                                .environmentObject(settings)
                         }
-                        
-                        ScriptureTypographyMenu(viewMode: $viewMode)
-                            .environmentObject(settings)
+                        .padding(.horizontal, 8)
+                        .foregroundColor(settings.theme.textColor.opacity(0.7))
+                        .transition(.move(edge: .leading).combined(with: .opacity))
                     }
-                    .padding(.horizontal, 8)
-                    .foregroundColor(settings.theme.textColor.opacity(0.7))
-                    .transition(.move(edge: .leading).combined(with: .opacity))
                 }
+                .padding(10)
+                .transition(.opacity)
             }
-            .padding(10)
         }
     }
     
@@ -327,7 +346,12 @@ struct ScriptureTypographyMenu: View {
                         Text(font.rawValue.capitalized).tag(font)
                     }
                 }
+                #if os(macOS)
                 .pickerStyle(.segmented)
+                #else
+                .pickerStyle(.menu)
+                #endif
+                .labelsHidden()
                 
                 Divider()
                 

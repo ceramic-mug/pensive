@@ -1,11 +1,17 @@
 import SwiftUI
 import SwiftData
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 struct JournalHomeView: View {
     var addNewEntry: () -> Void
     var selectEntry: (JournalEntry) -> Void
     @EnvironmentObject var settings: AppSettings
     @Query(sort: \JournalEntry.date, order: .reverse) private var entries: [JournalEntry]
+    @Environment(\.horizontalSizeClass) var sizeClass
     
     // Browser State
     @State private var selectedYear: Int?
@@ -13,10 +19,167 @@ struct JournalHomeView: View {
     
     // Search State
     @State private var searchText: String = ""
+    @State private var showSettings = false
     
     var body: some View {
+        Group {
+            #if os(iOS)
+            if sizeClass == .compact {
+                iosLayout
+            } else {
+                desktopLayout
+            }
+            #else
+            desktopLayout
+            #endif
+        }
+        .background(settings.theme.backgroundColor)
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(settings)
+        }
+        .onAppear(perform: initializeSelection)
+    }
+    
+    // MARK: - iOS Layout
+    
+    private var iosLayout: some View {
         VStack(spacing: 0) {
-            // 1. Header Area
+            iosHeader
+            
+            // Action Card
+            iosActionCard
+            
+            // Search Bar
+            iosSearchBar
+            
+            // Recent Entries
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Recent Entries")
+                        .font(.headline)
+                        .padding(.horizontal, 20)
+                    
+                    if entries.isEmpty {
+                        noEntriesView
+                    } else if !searchText.isEmpty {
+                        SearchResultsList(entries: entries, searchText: searchText, onSelect: selectEntry)
+                    } else {
+                        recentEntriesList
+                    }
+                }
+                .padding(.vertical, 20)
+            }
+        }
+        .background(settings.theme.backgroundColor.ignoresSafeArea())
+    }
+    
+    private var iosHeader: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Journal")
+                    .font(.system(size: 34, weight: .bold, design: .serif))
+                    .foregroundColor(settings.theme.textColor)
+                
+                Text(Date().formatted(date: .long, time: .omitted))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Button(action: { showSettings = true }) {
+                Image(systemName: "textformat.size")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .padding(10)
+                    .background(Color.primary.opacity(0.05))
+                    .clipShape(Circle())
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 40)
+        .padding(.bottom, 20)
+        .background(settings.theme.backgroundColor)
+    }
+    
+    private var iosActionCard: some View {
+        Button(action: addNewEntry) {
+            HStack(spacing: 16) {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.1))
+                        .frame(width: 50, height: 50)
+                    
+                    Image(systemName: "pencil.line")
+                        .font(.system(size: 24))
+                        .foregroundColor(.accentColor)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("New Entry")
+                        .font(.headline)
+                        .foregroundColor(settings.theme.textColor)
+                    Text("Write down your thoughts...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+            }
+            .padding(20)
+            .background(settings.theme.textColor.opacity(0.05))
+            .cornerRadius(20)
+            .padding(.horizontal, 20)
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var iosSearchBar: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.secondary)
+            TextField("Search entries...", text: $searchText)
+                .textFieldStyle(.plain)
+        }
+        .padding(12)
+        .background(settings.theme.textColor.opacity(0.05))
+        .cornerRadius(12)
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+    }
+    
+    private var noEntriesView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "doc.text.magnifyingglass")
+                .font(.system(size: 40))
+                .foregroundColor(.secondary.opacity(0.3))
+            Text("No entries yet")
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+    
+    private var recentEntriesList: some View {
+        ForEach(entries.prefix(10)) { entry in
+            Button(action: { selectEntry(entry) }) {
+                JournalEntryListRow(entry: entry)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 20)
+        }
+    }
+    
+    // MARK: - Desktop Layout
+    
+    private var desktopLayout: some View {
+        VStack(spacing: 0) {
+            // Header Area
             ZStack(alignment: .top) {
                 // Top Right Search
                 HStack {
@@ -75,7 +238,7 @@ struct JournalHomeView: View {
             .padding(.bottom, 24)
             .background(settings.theme.backgroundColor)
             
-            // 2. Main Content Area (Browser or Search Results)
+            // Main Content Area
             Group {
                 if !searchText.isEmpty {
                     SearchResultsList(
@@ -88,30 +251,31 @@ struct JournalHomeView: View {
                         entries: entries,
                         selectedYear: $selectedYear,
                         selectedMonth: $selectedMonth,
-                        onSelect: selectEntry
+                        onSelect: selectEntry,
+                        isCompact: false
                     )
                 }
             }
-            .frame(height: 420) // Reduced height
-            .frame(maxWidth: 900) // Limit width to approx 2/3
-            .padding(.top, 20) // Move down a bit
+            .frame(height: 420)
+            .frame(maxWidth: 900)
+            .padding(.top, 20)
             
             Spacer()
             
-            // 3. Compact Consistency View
+            // Compact Heatmap
             CompactHeatmapView(entries: entries)
                 .padding(16)
                 .background(settings.theme.backgroundColor)
         }
-        .background(settings.theme.backgroundColor)
-        .onAppear {
-            if selectedYear == nil {
-                let currentYear = Calendar.current.component(.year, from: Date())
-                if entries.contains(where: { Calendar.current.component(.year, from: $0.date) == currentYear }) {
-                    selectedYear = currentYear
-                } else {
-                    selectedYear = Calendar.current.component(.year, from: entries.first?.date ?? Date())
-                }
+    }
+    
+    private func initializeSelection() {
+        if selectedYear == nil {
+            let currentYear = Calendar.current.component(.year, from: Date())
+            if entries.contains(where: { Calendar.current.component(.year, from: $0.date) == currentYear }) {
+                selectedYear = currentYear
+            } else {
+                selectedYear = Calendar.current.component(.year, from: entries.first?.date ?? Date())
             }
         }
     }
@@ -135,6 +299,7 @@ struct JournalColumnBrowser: View {
     @Binding var selectedYear: Int?
     @Binding var selectedMonth: Date?
     let onSelect: (JournalEntry) -> Void
+    let isCompact: Bool
     @EnvironmentObject var settings: AppSettings
     
     @State private var selectedCategory: BrowserCategory?
@@ -183,154 +348,137 @@ struct JournalColumnBrowser: View {
     }
     
     var body: some View {
-        GeometryReader { geometry in
+        GeometryReader { _ in
             HStack(spacing: 0) {
                 // Column 1: Categories
                 VStack(spacing: 0) {
                     ListHeader(title: "Time")
                     List(categories, id: \.self, selection: $selectedCategory) { category in
-                        HStack {
-                            switch category {
-                            case .favorites:
-                                Label {
-                                    Text("Favorites").foregroundColor(.primary)
-                                } icon: {
-                                    Image(systemName: "star.fill").foregroundColor(.yellow)
-                                }
-                            case .year(let y):
-                                Text(String(y))
-                                    .font(.system(.body, design: .monospaced))
-                            }
-                            Spacer()
-                        }
-                        .tag(category)
+                        CategoryRow(category: category)
                     }
                     .listStyle(.plain)
                 }
-                .frame(width: 120) // Widen to fit Favorites
+                .frame(width: isCompact ? 100 : 120)
                 
                 Divider()
                 
                 // Column 2: Months
-                if case .favorites = selectedCategory {
-                    VStack {
-                        ListHeader(title: "Filter")
-                        Spacer()
-                        Text("All Favorites")
-                            .foregroundColor(.secondary)
-                            .italic()
-                        Spacer()
-                    }
-                     .frame(width: 140) // Fixed thinner width
-                } else {
-                    VStack(spacing: 0) {
-                        ListHeader(title: "Month")
-                        List(selection: $selectedMonth) {
-                            Text("All Months")
-                                .tag(Optional<Date>.none) // Selects nil
-                            
-                            ForEach(monthsInSelectedCategory, id: \.self) { month in
-                                Text(month.formatted(.dateTime.month(.wide)))
-                                    .font(.system(.body, design: .rounded))
-                                    .padding(.vertical, 4)
-                                    .tag(Optional(month))
-                            }
-                        }
-                        .listStyle(.plain)
-                    }
-                    .frame(width: 140) // Fixed thinner width
+                if !isCompact || selectedCategory != nil {
+                    MonthColumn(selectedCategory: selectedCategory, selectedMonth: $selectedMonth, months: monthsInSelectedCategory)
+                        .frame(width: isCompact ? 110 : 140)
+                    
+                    Divider()
                 }
-                
-                Divider()
                 
                 // Column 3: Entries
-                VStack(spacing: 0) {
-                    ListHeader(title: "Entries")
-                    List(displayedEntries, selection: $selectedEntryID) { entry in
-                        JournalEntryListRow(entry: entry)
-                            .contentShape(Rectangle())
-                            .onTapGesture(count: 2) {
-                                onSelect(entry)
-                            }
-                            .tag(entry.id)
-                            .listRowSeparator(.visible)
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    deleteEntry(entry)
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                            }
-                            .swipeActions(edge: .leading) {
-                                Button {
-                                    toggleFavorite(entry)
-                                } label: {
-                                    Label(entry.isFavorite ? "Unfavorite" : "Favorite", systemImage: entry.isFavorite ? "star.slash" : "star.fill")
-                                }
-                                .tint(.yellow)
-                                
-                                Button {
-                                    let pasteboard = NSPasteboard.general
-                                    pasteboard.clearContents()
-                                    let dateHeader = entry.date.formatted(date: .long, time: .shortened)
-                                    let bodyText = (entry.sections?.isEmpty == false) ? entry.sections!.compactMap(\.content).joined(separator: "\n\n") : entry.content
-                                    let fullText = "\(dateHeader)\n\n\(bodyText)"
-                                    pasteboard.setString(fullText, forType: .string)
-                                } label: {
-                                    Label("Copy", systemImage: "doc.on.doc")
-                                }
-                                .tint(.gray)
-                            }
-                            .contextMenu {
-                                Button("Open") { onSelect(entry) }
-                                Button(action: { toggleFavorite(entry) }) {
-                                    Label(entry.isFavorite ? "Unfavorite" : "Favorite", systemImage: entry.isFavorite ? "star.slash" : "star.fill")
-                                }
-                                Button(action: { 
-                                     let pasteboard = NSPasteboard.general
-                                     pasteboard.clearContents()
-                                     let dateHeader = entry.date.formatted(date: .long, time: .shortened)
-                                     let bodyText = (entry.sections?.isEmpty == false) ? entry.sections!.compactMap(\.content).joined(separator: "\n\n") : entry.content
-                                     let fullText = "\(dateHeader)\n\n\(bodyText)"
-                                     pasteboard.setString(fullText, forType: .string)
-                                }) {
-                                    Label("Copy Text", systemImage: "doc.on.doc")
-                                }
-                                Button(role: .destructive, action: { deleteEntry(entry) }) {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                            }
-                    }
-                    .listStyle(.plain)
-                }
-                .frame(maxWidth: .infinity)
+                EntryColumn(entries: displayedEntries, selectedEntryID: $selectedEntryID, onSelect: onSelect)
             }
-            .border(Color.primary.opacity(0.1), width: 1) // Optional: Add border to the browser
+            .border(Color.primary.opacity(0.1), width: 1)
         }
         .onAppear {
             if selectedCategory == nil {
                 if let y = selectedYear {
                    selectedCategory = .year(y)
+                } else if let maxYear = Set(entries.map { calendar.component(.year, from: $0.date) }).max() {
+                    selectedCategory = .year(maxYear)
                 } else {
-                    // Default to latest year
-                    let uniqueYears = Set(entries.map { calendar.component(.year, from: $0.date) })
-                    if let maxYear = uniqueYears.max() {
-                        selectedCategory = .year(maxYear)
-                    } else {
-                        // If no entries, maybe favorites?
-                         selectedCategory = .favorites
-                    }
+                    selectedCategory = .favorites
                 }
             }
         }
-        .onChange(of: selectedCategory) { newValue in
+        .onChange(of: selectedCategory) { _, newValue in
             if case .year(let y) = newValue {
                 selectedYear = y
             }
         }
     }
+}
+
+// Sub-views to break up body complexity
+struct CategoryRow: View {
+    let category: BrowserCategory
+    var body: some View {
+        HStack {
+            switch category {
+            case .favorites:
+                Label {
+                    Text("Favorites").foregroundColor(.primary)
+                } icon: {
+                    Image(systemName: "star.fill").foregroundColor(.yellow)
+                }
+            case .year(let y):
+                Text(String(y))
+                    .font(.system(.body, design: .monospaced))
+            }
+            Spacer()
+        }
+        .tag(category)
+    }
+}
+
+struct MonthColumn: View {
+    let selectedCategory: BrowserCategory?
+    @Binding var selectedMonth: Date?
+    let months: [Date]
     
+    var body: some View {
+        VStack(spacing: 0) {
+            ListHeader(title: "Month")
+            if case .favorites = selectedCategory {
+                Spacer()
+                Text("All Favorites")
+                    .foregroundColor(.secondary)
+                    .italic()
+                Spacer()
+            } else {
+                List(selection: $selectedMonth) {
+                    Text("All Months").tag(Optional<Date>.none)
+                    ForEach(months, id: \.self) { month in
+                        Text(month.formatted(.dateTime.month(.wide)))
+                            .font(.system(.body, design: .rounded))
+                            .padding(.vertical, 4)
+                            .tag(Optional(month))
+                    }
+                }
+                .listStyle(.plain)
+            }
+        }
+    }
+}
+
+struct EntryColumn: View {
+    let entries: [JournalEntry]
+    @Binding var selectedEntryID: JournalEntry.ID?
+    let onSelect: (JournalEntry) -> Void
     @Environment(\.modelContext) private var modelContext
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            ListHeader(title: "Entries")
+            List(entries, selection: $selectedEntryID) { entry in
+                JournalEntryListRow(entry: entry)
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 2) { onSelect(entry) }
+                    .tag(entry.id)
+                    .listRowSeparator(.visible)
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) { deleteEntry(entry) } label: { Label("Delete", systemImage: "trash") }
+                    }
+                    .swipeActions(edge: .leading) {
+                        Button { toggleFavorite(entry) } label: { Label(entry.isFavorite ? "Unfavorite" : "Favorite", systemImage: entry.isFavorite ? "star.slash" : "star.fill") }.tint(.yellow)
+                        Button { copyEntry(entry) } label: { Label("Copy", systemImage: "doc.on.doc") }.tint(.gray)
+                    }
+                    .contextMenu {
+                        Button("Open") { onSelect(entry) }
+                        Button(action: { toggleFavorite(entry) }) { Label(entry.isFavorite ? "Unfavorite" : "Favorite", systemImage: entry.isFavorite ? "star.slash" : "star.fill") }
+                        Button(action: { copyEntry(entry) }) { Label("Copy Text", systemImage: "doc.on.doc") }
+                        Button(role: .destructive, action: { deleteEntry(entry) }) { Label("Delete", systemImage: "trash") }
+                    }
+            }
+            .listStyle(.plain)
+        }
+        .frame(maxWidth: .infinity)
+    }
     
     private func toggleFavorite(_ entry: JournalEntry) {
         entry.isFavorite.toggle()
@@ -340,6 +488,20 @@ struct JournalColumnBrowser: View {
     private func deleteEntry(_ entry: JournalEntry) {
         modelContext.delete(entry)
         try? modelContext.save()
+    }
+    
+    private func copyEntry(_ entry: JournalEntry) {
+        let dateHeader = entry.date.formatted(date: .long, time: .shortened)
+        let bodyText = (entry.sections?.isEmpty == false) ? entry.sections!.compactMap(\.content).joined(separator: "\n\n") : entry.content
+        let fullText = "\(dateHeader)\n\n\(bodyText)"
+        
+        #if os(macOS)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(fullText, forType: .string)
+        #else
+        UIPasteboard.general.string = fullText
+        #endif
     }
 }
 
@@ -452,9 +614,11 @@ struct CompactHeatmapView: View {
             .foregroundColor(.secondary)
             
             // The Graph
-            YearHeatmapGrid(entries: entries, year: displayYear)
-                .frame(maxWidth: .infinity, alignment: .center) // Force centering
-                .frame(height: 110)
+            ScrollView(.horizontal, showsIndicators: false) {
+                YearHeatmapGrid(entries: entries, year: displayYear)
+                    .padding(.horizontal)
+            }
+            .frame(height: 110)
         }
         .padding(.vertical, 8)
     }
@@ -534,7 +698,7 @@ struct YearHeatmapGrid: View {
         var currentWeek: [Date?] = Array(repeating: nil, count: 7)
         
         // Find weekday of Jan 1
-        let firstWeekday = calendar.component(.weekday, from: startOfYear) // 1=Sun
+        _ = calendar.component(.weekday, from: startOfYear) // 1=Sun
         
         // Offset logic: if grid starts loops at 0 (Sun), exact match.
         // We need to pad the first week if it doesn't start on Sunday

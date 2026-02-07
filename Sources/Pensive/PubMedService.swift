@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 // MARK: - Rate Limited Service
 actor PubMedRateLimiter {

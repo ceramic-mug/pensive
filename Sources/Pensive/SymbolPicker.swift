@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 
 struct SymbolItem: Identifiable, Equatable {
@@ -96,6 +95,17 @@ struct SymbolRow: View {
     
     @State private var isHovered = false
     
+    private var rowBackground: Color {
+        if isSelected {
+            return Color.accentColor.opacity(0.1)
+        }
+        #if os(macOS)
+        return isHovered ? Color.primary.opacity(0.05) : Color.clear
+        #else
+        return Color.clear
+        #endif
+    }
+    
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
@@ -119,11 +129,12 @@ struct SymbolRow: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            .background(isSelected ? Color.accentColor.opacity(0.1) : (isHovered ? Color.primary.opacity(0.05) : Color.clear))
+            .background(rowBackground)
             .cornerRadius(8)
         }
         .buttonStyle(.plain)
+        #if os(macOS)
         .onHover { isHovered = $0 }
+        #endif
     }
 }
-#endif

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HomeView: View {
-    @Binding var sidebarSelection: ContentView.SidebarItem
+    @Binding var sidebarSelection: ContentView.SidebarItem?
     @Binding var selectedEntryID: UUID?
     @EnvironmentObject var settings: AppSettings
     @State private var currentDate = Date()
@@ -76,6 +76,18 @@ struct HomeView: View {
                 
                 Spacer()
             }
+        }
+        .overlay(alignment: .topTrailing) {
+            #if !os(macOS)
+            Button(action: { 
+                NotificationCenter.default.post(name: NSNotification.Name("ShowSettings"), object: nil)
+            }) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 20))
+                    .padding()
+            }
+            .padding(.top, 10)
+            #endif
         }
         .onAppear {
             // Update time every second

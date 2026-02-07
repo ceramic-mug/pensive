@@ -8,10 +8,10 @@ struct StudyArticleCard: View {
     let category: String
     @Query private var readArticles: [ReadArticle]
     
-    @State private var fetchedSections: [AbstractSection]? = nil
-    @State private var isFetchingAbstract = false
-    @State private var fetchError: String? = nil
-    @State private var isExpanded = false
+    @EnvironmentObject var settings: AppSettings
+    @Environment(\.openURL) private var openURL
+    @State private var isHovering = false
+    @State private var isTapped = false
     
     var isRead: Bool {
         readArticles.contains { $0.url == item.link }
@@ -21,194 +21,110 @@ struct StudyArticleCard: View {
         readArticles.first(where: { $0.url == item.link })?.isFlagged ?? false
     }
     
+    private var cardBackground: Color {
+        if isRead {
+            return settings.theme.textColor.opacity(0.01)
+        }
+        return settings.theme.textColor.opacity(0.03)
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // MARK: - Header Image
+            // Header Image (Optional)
             if let imageURL = item.imageURL, let url = URL(string: imageURL) {
                 AsyncImage(url: url) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .frame(height: 160)
+                        .frame(height: settings.studyColumns > 4 ? 60 : 100)
                         .clipped()
                 } placeholder: {
                     Rectangle()
                         .fill(Color.primary.opacity(0.05))
-                        .frame(height: 160)
+                        .frame(height: settings.studyColumns > 4 ? 60 : 100)
                 }
             }
             
-            VStack(alignment: .leading, spacing: 12) {
-                // MARK: - Metadata
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.cleanTitle)
-                            .font(.system(.title3, design: .serif).weight(.medium))
-                            .foregroundColor(isRead ? .secondary : .primary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .lineLimit(3)
-                        
-                        HStack(spacing: 6) {
-                            if !journalName.isEmpty {
-                                Text(journalName)
-                                    .font(.system(.caption, design: .rounded).bold())
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.accentColor)
-                                    .cornerRadius(4)
-                            }
-                            
-                            Text(item.pubDate)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                
-                // MARK: - Abstract Content
-                // Priority: Fetched > Parsed > Description
-                let displaySections = fetchedSections ?? item.abstractSections
-                
-                if let sections = displaySections, !sections.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(sections.prefix(isExpanded ? 10 : 2)) { section in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(section.title.uppercased())
-                                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                                    .foregroundColor(.secondary)
-                                
-                                Text(section.content)
-                                    .font(.callout)
-                                    .foregroundColor(.primary.opacity(0.8))
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .lineLimit(isExpanded ? nil : 6)
-                            }
-                        }
-                        
-                        if sections.count > 2 && !isExpanded {
-                            Button(action: { withAnimation { isExpanded = true } }) {
-                                Text("Read more...")
-                                    .font(.caption.bold())
-                                    .foregroundColor(.accentColor)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                } else {
-                    // Fallback Description
-                    if !item.cleanDescription.isEmpty {
-                        Text(item.cleanDescription)
-                            .font(.callout)
-                            .foregroundColor(.secondary)
-                            .lineLimit(isExpanded ? nil : 5)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                
-                // MARK: - Auto-Fetch / Loading State
-                if fetchedSections == nil && item.abstractSections == nil && item.doi != nil {
-                    if isFetchingAbstract {
-                        HStack {
-                            ProgressView()
-                                .scaleEffect(0.6)
-                            Text("Loading abstract...")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.top, 4)
-                        .transition(.opacity)
-                    } else if fetchError != nil {
-                         // Only show retry button on error, don't auto-retry endlessly
-                        Button("Retry Abstract") { fetchAbstract() }
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    } else {
-                         // Invisible trigger for auto-fetch
-                         Color.clear
-                            .frame(height: 1)
-                            .onAppear {
-                                print("DEBUG: StudyArticleCard onAppear triggered for \(item.title.prefix(20))")
-                                fetchAbstract()
-                            }
-                    }
-                }
-                
-                // MARK: - Action Bar
-                Divider()
-                    .padding(.top, 4)
-                
-                HStack {
-                    Button(action: {
-                        if let url = URL(string: item.link) {
-                            NSWorkspace.shared.open(url)
-                            markAsRead()
-                        }
-                    }) {
-                        Label("Read", systemImage: "safari")
-                            .font(.caption.bold())
-                    }
-                    .buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 8) {
+                // Metadata Row
+                HStack(spacing: 6) {
+                    Text(journalName.uppercased())
+                        .font(.system(size: 9, weight: .black, design: .rounded))
+                        .foregroundColor(.accentColor)
+                    
+                    Text("•")
+                        .font(.system(size: 8))
+                        .foregroundColor(.secondary.opacity(0.3))
+                    
+                    Text(item.date.formatted(date: .abbreviated, time: .omitted))
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .foregroundColor(.secondary)
                     
                     Spacer()
                     
-                    Button(action: toggleRead) {
-                        Image(systemName: isRead ? "checkmark.circle.fill" : "checkmark.circle")
-                            .font(.system(size: 16))
-                            .foregroundColor(isRead ? .green : .secondary)
+                    if isStarred {
+                        Image(systemName: "star.fill")
+                            .foregroundColor(.orange)
+                            .font(.system(size: 8))
                     }
-                    .buttonStyle(.plain)
-                    .help(isRead ? "Mark as Unread" : "Mark as Read")
                     
-                    Button(action: toggleStar) {
-                        Image(systemName: isStarred ? "star.fill" : "star")
-                            .font(.system(size: 16))
-                            .foregroundColor(isStarred ? .orange : .secondary)
+                    if isRead {
+                        Image(systemName: "checkmark")
+                            .foregroundColor(.green.opacity(0.5))
+                            .font(.system(size: 8, weight: .bold))
                     }
-                    .buttonStyle(.plain)
-                    .help(isStarred ? "Unstar" : "Star")
                 }
+                
+                // Title
+                Text(item.cleanTitle)
+                    .font(.system(size: settings.studyColumns > 3 ? 13 : 15, weight: .medium, design: .serif))
+                    .foregroundColor(settings.theme.textColor.opacity(isRead ? 0.4 : 0.9))
+                    .lineLimit(settings.studyColumns > 4 ? 2 : 3)
+                    .lineSpacing(2)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(16)
+            .padding(settings.studyColumns > 4 ? 10 : 14)
         }
-        .background(Color(.windowBackgroundColor)) // Card background
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+        .background(cardBackground)
+        .cornerRadius(10)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.primary.opacity(0.05), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(isHovering ? Color.accentColor.opacity(0.4) : Color.primary.opacity(0.06), lineWidth: 1)
         )
+        .shadow(color: Color.black.opacity(isHovering ? 0.1 : 0), radius: 10, x: 0, y: 4)
+        .scaleEffect(isTapped ? 0.97 : (isHovering ? 1.015 : 1.0))
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isHovering)
+        .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isTapped)
+        .onHover { hovering in
+            #if os(macOS)
+            isHovering = hovering
+            #endif
+        }
+        .onTapGesture {
+            handleTap()
+        }
+        .contextMenu {
+            Button(action: toggleRead) {
+                Label(isRead ? "Mark as Unread" : "Mark as Read", systemImage: isRead ? "circle" : "checkmark.circle")
+            }
+            Button(action: toggleStar) {
+                Label(isStarred ? "Unstar" : "Star", systemImage: isStarred ? "star.slash" : "star")
+            }
+            Divider()
+            Button(action: { if let url = URL(string: item.link) { openURL(url) } }) {
+                Label("Open in Browser", systemImage: "safari")
+            }
+        }
     }
     
-    private func fetchAbstract() {
-        guard let doi = item.doi else { return }
-        // Prevent duplicate fetches if already have sections or currently fetching
-        if isFetchingAbstract || fetchedSections != nil { return }
-        
-        isFetchingAbstract = true
-        fetchError = nil
-        
-        Task {
-            do {
-                let abstractText = try await PubMedService.shared.fetchAbstract(doi: doi)
-                
-                await MainActor.run {
-                    withAnimation {
-                        // Try to parse it into sections
-                        if let parsed = RSSItem.parseAbstractSections(from: abstractText) {
-                            self.fetchedSections = parsed
-                        } else {
-                            // If no sections found, just return whole text as one section
-                            self.fetchedSections = [AbstractSection(title: "Abstract", content: abstractText)]
-                        }
-                        self.isFetchingAbstract = false
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    self.fetchError = error.localizedDescription
-                    self.isFetchingAbstract = false
-                }
+    private func handleTap() {
+        isTapped = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            isTapped = false
+            if let url = URL(string: item.link) {
+                openURL(url)
+                markAsRead()
             }
         }
     }
