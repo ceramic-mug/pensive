@@ -24,6 +24,7 @@ struct ScriptureView: View {
     @State private var showSettings = false
     @State private var isUIVisible = true
     @State private var isSettingsExpanded = false
+    @State private var isTypographyPresented = false
     
     private let calendar = Calendar.current
     
@@ -42,6 +43,28 @@ struct ScriptureView: View {
             }
             
             
+        }
+        .sheet(isPresented: $isTypographyPresented) {
+            #if os(iOS)
+            NavigationView {
+                ScriptureSettingsContent()
+                    .environmentObject(settings)
+                    .navigationTitle("Typography")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") { isTypographyPresented = false }
+                        }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            #else
+            ScriptureSettingsContent()
+                .padding()
+                .frame(width: 250)
+                .environmentObject(settings)
+            #endif
         }
         .animation(.spring(), value: viewMode)
         .animation(.easeInOut, value: isUIVisible)
@@ -225,20 +248,22 @@ extension ScriptureView {
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .padding(.top, 200)
                         } else {
-                            VStack(spacing: 50) {
+                            VStack(spacing: 24) { // Reduced spacing between passages
                                 ForEach(scriptureService.fetchedPassages) { passage in
-                                    VStack(spacing: 50) {
+                                    VStack(alignment: .leading, spacing: 16) { // Reduced spacing between reference and text
                                         Text(passage.reference)
-                                            .font(getFont(size: settings.textSize * 1.5))
-                                            .underline()
-                                            .foregroundColor(settings.theme.textColor)
-                                            .frame(maxWidth: .infinity)
+                                            .font(getFont(size: settings.textSize * 1.2).bold()) // Use .bold() modifier instead
+                                            .foregroundColor(settings.theme.textColor.opacity(0.6))
+                                            .frame(maxWidth: .infinity, alignment: .leading)
                                         
-                                        Text(passage.text)
+                                        Text(passage.text(isCompact: sizeClass == .compact))
                                             .font(getFont(size: settings.textSize))
-                                            .lineSpacing(settings.textSize * 0.45)
+                                            .lineSpacing(settings.lineSpacing)
                                             .foregroundColor(settings.theme.textColor)
+                                            // For poetry, we might want a different alignment or padding if NOT wrapped
+                                            .padding(.leading, (passage.isPoetic && sizeClass != .compact) ? 12 : 0)
                                     }
+                                    .padding(.bottom, 24) // Spacing after each passage
                                 }
                             }
                             .padding(.horizontal, calculatedPadding)
@@ -270,9 +295,13 @@ extension ScriptureView {
                 HStack(spacing: 0) {
                     // Settings Toggle
                     Button(action: {
+                        #if os(iOS)
+                        isTypographyPresented.toggle() // Open sheet directly on iOS
+                        #else
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             isSettingsExpanded.toggle()
                         }
+                        #endif
                     }) {
                         Image(systemName: isSettingsExpanded ? "chevron.left" : "textformat.size")
                             .font(.system(size: 18, weight: .medium))
@@ -323,7 +352,7 @@ extension ScriptureView {
                                 }
                             }
                             
-                            ScriptureTypographyMenu(viewMode: $viewMode)
+                            ScriptureTypographyMenu(viewMode: $viewMode, isPresented: $isTypographyPresented)
                                 .environmentObject(settings)
                         }
                         .padding(.trailing, 12)
@@ -337,10 +366,10 @@ extension ScriptureView {
                         .fill(settings.theme.backgroundColor.opacity(0.8))
                         .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 4)
                 )
-                .padding(.top, sizeClass == .compact ? 0 : 40) // Consolidate top padding
-                .padding(.leading, sizeClass == .compact ? 20 : 70) // Adjust leading padding
-                .frame(maxWidth: .infinity, alignment: .leading) // Align left but allow full width context
-                .padding(.top, sizeClass == .compact ? 20 : 0) // Moved higher (was 50)
+                .padding(.top, sizeClass == .compact ? 0 : 40)
+                .padding(sizeClass == .compact ? .trailing : .leading, sizeClass == .compact ? 20 : 70) 
+                .frame(maxWidth: .infinity, alignment: sizeClass == .compact ? .topTrailing : .leading) // Top trailing on iOS
+                .padding(.top, sizeClass == .compact ? 20 : 0)
                 .transition(.opacity)
             }
         }
@@ -396,11 +425,10 @@ extension ScriptureView {
     }
 }
 
-// MARK: - Discrete Typography Menu
 struct ScriptureTypographyMenu: View {
     @EnvironmentObject var settings: AppSettings
     @Binding var viewMode: ScriptureViewMode
-    @State private var isPresented = false
+    @Binding var isPresented: Bool
     
     var body: some View {
         Button(action: { isPresented.toggle() }) {
@@ -408,51 +436,61 @@ struct ScriptureTypographyMenu: View {
                 .font(.system(size: 13))
         }
         .buttonStyle(.plain)
-        .popover(isPresented: $isPresented, arrowEdge: .top) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Font")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Picker("", selection: $settings.font) {
+    }
+}
+
+struct ScriptureSettingsContent: View {
+    @EnvironmentObject var settings: AppSettings
+    
+    var body: some View {
+        List {
+            Section("Font") {
+                Picker("Font family", selection: $settings.font) {
                     ForEach(AppFont.allCases) { font in
                         Text(font.rawValue.capitalized).tag(font)
                     }
                 }
-                #if os(macOS)
                 .pickerStyle(.segmented)
-                #else
-                .pickerStyle(.menu)
-                #endif
-                .labelsHidden()
-                
-                Divider()
-                
-                Text("Column Width")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                HStack {
-                    Button(action: { settings.marginPercentage = min(0.45, settings.marginPercentage + 0.05) }) {
-                        Image(systemName: "minus")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    
-                    Text("\(Int((1.0 - settings.marginPercentage * 2) * 100))%")
-                        .font(.system(.body, design: .rounded).monospacedDigit())
-                        .frame(width: 40)
-                    
-                    Button(action: { settings.marginPercentage = max(0, settings.marginPercentage - 0.05) }) {
-                        Image(systemName: "plus")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                }
+                .padding(.vertical, 4)
             }
-            .padding()
-            .frame(width: 200)
+            
+            Section("Layout") {
+                // Combine into more compact rows
+                VStack(spacing: 8) {
+                    HStack {
+                        Image(systemName: "textformat.size")
+                            .frame(width: 24)
+                        Slider(value: $settings.textSize, in: 12...72, step: 1)
+                        Text("\(Int(settings.textSize))")
+                            .font(.system(.subheadline, design: .rounded).monospacedDigit())
+                            .frame(width: 32, alignment: .trailing)
+                    }
+                    
+                    HStack {
+                        Image(systemName: "arrow.left.and.right")
+                            .frame(width: 24)
+                        Slider(value: $settings.marginPercentage, in: 0...0.45, step: 0.05)
+                        Text("\(Int((1.0 - settings.marginPercentage * 2) * 100))%")
+                            .font(.system(.subheadline, design: .rounded).monospacedDigit())
+                            .frame(width: 32, alignment: .trailing)
+                    }
+                    
+                    HStack {
+                        Image(systemName: "line.3.horizontal")
+                            .frame(width: 24)
+                        Slider(value: $settings.lineSpacing, in: 0...40, step: 1)
+                        Text("\(Int(settings.lineSpacing))")
+                            .font(.system(.subheadline, design: .rounded).monospacedDigit())
+                            .frame(width: 32, alignment: .trailing)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
         }
+        #if os(iOS)
+        .listStyle(.insetGrouped)
+        .environment(\.defaultMinListHeaderHeight, 1)
+        #endif
     }
 }
 

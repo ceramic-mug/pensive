@@ -5,6 +5,22 @@ struct Passage: Identifiable {
     let id = UUID()
     let reference: String
     let text: String
+    let isPoetic: Bool
+    
+    func text(isCompact: Bool) -> String {
+        if isPoetic && isCompact {
+            // Protect double newlines (stanzas) with a unique placeholder that has no newlines
+            let placeholder = "[[STANZABREAK]]"
+            return text
+                .replacingOccurrences(of: "\n\n", with: placeholder)
+                .replacingOccurrences(of: "\n", with: " ")
+                .replacingOccurrences(of: placeholder, with: "\n\n")
+                .replacingOccurrences(of: "\t", with: "")
+                .replacingOccurrences(of: "  ", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return text
+    }
 }
 
 class ScriptureService: ObservableObject {
@@ -57,10 +73,48 @@ class ScriptureService: ObservableObject {
                         var result: [Passage] = []
                         for (index, text) in fetchedText.enumerated() {
                             if index < passages.count {
-                                // Remove indentation: Replace standard 2-space indent with empty string
-                                let processedText = text.replacingOccurrences(of: "  ", with: "")
-                                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                                result.append(Passage(reference: passages[index].trimmingCharacters(in: .whitespacesAndNewlines), text: processedText))
+                                let ref = passages[index].trimmingCharacters(in: .whitespacesAndNewlines)
+                                
+                                // Detect if it's a poetic book or has poetic formatting
+                                let poeticBooks = ["Psalms", "Job", "Proverbs", "Ecclesiastes", "Song of Solomon"]
+                                var isPoetic = poeticBooks.contains { ref.contains($0) }
+                                
+                                // Even if not a poetic book, check if the content looks poetic (lots of leading spaces)
+                                if !isPoetic && text.contains("\n    ") {
+                                    isPoetic = true
+                                }
+                                
+                                var processedText = text
+                                
+                                // Fix the "extra newline" by replacing triple newlines with double
+                                processedText = processedText.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+                                
+                                if isPoetic {
+                                    // Normalize indents
+                                    processedText = processedText.components(separatedBy: .newlines)
+                                        .map { line in
+                                            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+                                            if line.hasPrefix("    ") {
+                                                return "\t" + trimmedLine
+                                            } else if line.hasPrefix("  ") {
+                                                return "  " + trimmedLine
+                                            }
+                                            return trimmedLine
+                                        }
+                                        .joined(separator: "\n")
+                                } else {
+                                    // Normal prose
+                                    // Protect double newlines from being accidentally collapsed during single-newline stripping
+                                    processedText = processedText.components(separatedBy: "\n\n")
+                                        .map { paragraph in
+                                            return paragraph.replacingOccurrences(of: "\n", with: " ")
+                                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                                        }
+                                        .joined(separator: "\n\n")
+                                }
+                                
+                                processedText = processedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                                result.append(Passage(reference: ref, text: processedText, isPoetic: isPoetic))
                             }
                         }
                         self.fetchedPassages = result

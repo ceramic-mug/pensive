@@ -50,8 +50,8 @@ struct PensiveApp: App {
                     Task.detached(priority: .utility) {
                         await UbiquitousStore.shared.setupMirroring(keys: [
                             "theme", // Shared across platforms
-                            "iOS_font", "iOS_textSize", "iOS_marginPercentage",
-                            "macOS_font", "macOS_textSize", "macOS_marginPercentage",
+                            "iOS_font", "iOS_textSize", "iOS_marginPercentage", "iOS_lineSpacing",
+                            "macOS_font", "macOS_textSize", "macOS_marginPercentage", "macOS_lineSpacing",
                             "editorWidth", "esvApiKey",
                             "useInstitutionalProxy", "proxyType", "proxyRoot"
                         ])
@@ -85,10 +85,12 @@ class AppSettings: ObservableObject {
     @AppStorage("iOS_font") var font: AppFont = .serif
     @AppStorage("iOS_textSize") var textSize: Double = 18
     @AppStorage("iOS_marginPercentage") var marginPercentage: Double = 0.05
+    @AppStorage("iOS_lineSpacing") var lineSpacing: Double = 6.0 // Added for iOS
     #else
     @AppStorage("macOS_font") var font: AppFont = .sans
     @AppStorage("macOS_textSize") var textSize: Double = 20
     @AppStorage("macOS_marginPercentage") var marginPercentage: Double = 0.15
+    @AppStorage("macOS_lineSpacing") var lineSpacing: Double = 8.0 // Added for macOS
     #endif
     
     @AppStorage("editorWidth") var editorWidth: Double = 750
