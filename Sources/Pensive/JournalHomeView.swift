@@ -16,7 +16,6 @@ struct JournalHomeView: View {
     
     // Simplified State
     @State private var showLibrary = false
-    @State private var showActivity = false
     @State private var selectedYear: Int?
     @State private var selectedMonth: Date?
     @State private var searchText: String = ""
@@ -40,18 +39,28 @@ struct JournalHomeView: View {
             }
             
             if showLibrary {
+                #if os(macOS)
                 libraryOverlay
+                #endif
             }
             
-            if showActivity {
-                activityOverlay
-            }
             
             if let entry = entryToRead {
-                entryReaderOverlay(entry)
+                JournalEntryReader(entry: entry, onClose: {
+                    withAnimation(.easeInOut) { entryToRead = nil }
+                })
             }
         }
         .background(settings.theme.backgroundColor)
+        #if os(iOS)
+        .fullScreenCover(isPresented: $showLibrary) {
+            IOSJournalBrowserView()
+            .environmentObject(settings)
+        }
+        #endif
+        #if os(iOS)
+        .toolbar(showLibrary ? .hidden : .visible, for: .tabBar)
+        #endif
         .sheet(isPresented: $showSettings) {
             SettingsView()
                 .environmentObject(settings)
@@ -98,80 +107,6 @@ struct JournalHomeView: View {
         }
     }
     
-    private var activityOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.3)
-                .ignoresSafeArea()
-                .onTapGesture { withAnimation { showActivity = false } }
-            
-            VStack {
-                Spacer()
-                UnifiedHeatmapView()
-                    .padding()
-                    .background(settings.theme.backgroundColor)
-                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 32, topTrailingRadius: 32))
-                    .shadow(radius: 20)
-            }
-            .ignoresSafeArea(edges: .bottom)
-        }
-    }
-    
-    @ViewBuilder
-    private func entryReaderOverlay(_ entry: JournalEntry) -> some View {
-        ZStack {
-            // Subtle dimming backround - separated for soft fade
-            Color.black.opacity(0.4)
-                .ignoresSafeArea()
-                .onTapGesture { withAnimation(.easeInOut) { entryToRead = nil } }
-                .transition(.opacity) // Pure opacity for soft fade
-            
-            // The Card - with scale/opacity transition
-            VStack(spacing: 0) {
-                HStack {
-                    Text(entry.date.formatted(date: .complete, time: .omitted))
-                        .font(.system(.headline, design: .serif))
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Button(action: { withAnimation(.easeInOut) { entryToRead = nil } }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(.secondary.opacity(0.5))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding()
-                
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        Text(entry.date.formatted(date: .omitted, time: .shortened))
-                            .font(.system(.subheadline, design: .rounded).bold())
-                            .foregroundColor(.accentColor)
-                        
-                        if let sections = entry.sections, !sections.isEmpty {
-                            ForEach(sections) { section in
-                                Text(section.content)
-                                    .font(.system(.body, design: .serif))
-                                    .lineSpacing(6)
-                            }
-                        } else {
-                            Text(entry.content)
-                                .font(.system(.body, design: .serif))
-                                .lineSpacing(6)
-                        }
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .frame(maxWidth: 600, maxHeight: 600)
-            .background(settings.theme.backgroundColor)
-            .cornerRadius(24)
-            .shadow(radius: 30)
-            .padding()
-            .transition(.scale(scale: 0.9).combined(with: .opacity)) // Card scaling only
-        }
-        .zIndex(100) // Ensure it's on top
-    }
     
     // MARK: - iOS Layout
     
@@ -180,8 +115,8 @@ struct JournalHomeView: View {
             VStack(spacing: 32) {
                 iosHeader
                 
-                // Primary Action
-                VStack(spacing: 16) {
+                // Primary Actions
+                HStack(spacing: 16) {
                     Button(action: addNewEntry) {
                         VStack(spacing: 12) {
                             ZStack {
@@ -198,9 +133,37 @@ struct JournalHomeView: View {
                                 .font(.system(.headline, design: .rounded).bold())
                                 .foregroundColor(settings.theme.textColor)
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                        .background(settings.theme.textColor.opacity(0.04))
+                        .cornerRadius(20)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: { withAnimation { showLibrary = true } }) {
+                        VStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.orange.opacity(0.1))
+                                    .frame(width: 60, height: 60)
+                                
+                                Image(systemName: "archivebox.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.orange)
+                            }
+                            
+                            Text("Open Archive")
+                                .font(.system(.headline, design: .rounded).bold())
+                                .foregroundColor(settings.theme.textColor)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                        .background(settings.theme.textColor.opacity(0.04))
+                        .cornerRadius(20)
                     }
                     .buttonStyle(.plain)
                 }
+                .padding(.horizontal, 24)
                 .padding(.top, 10)
                 
                 // Search & Browse
@@ -227,11 +190,6 @@ struct JournalHomeView: View {
                                 Text("Recent Entries")
                                     .font(.system(.headline, design: .serif))
                                 Spacer()
-                                Button(action: { withAnimation { showLibrary = true } }) {
-                                    Text("View All")
-                                        .font(.caption.bold())
-                                        .foregroundColor(.accentColor)
-                                }
                             }
                             .padding(.horizontal, 24)
                             
@@ -250,54 +208,45 @@ struct JournalHomeView: View {
                     }
                 }
                 
-                // Activity Toggle
-                Button(action: { withAnimation { showActivity = true } }) {
-                    Label("View Activity", systemImage: "chart.bar.fill")
-                        .font(.system(.subheadline, design: .rounded).bold())
-                        .foregroundColor(.secondary)
-                        .padding(.vertical, 40)
-                }
-                .buttonStyle(.plain)
             }
         }
     }
     
     private var iosHeader: some View {
-        HStack {
-            Button(action: { sidebarSelection = .home }) {
-                Image(systemName: "arrow.left")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(settings.theme.textColor.opacity(0.6))
-                    .padding(10)
-                    .background(Circle().fill(settings.theme.textColor.opacity(0.05)))
-            }
-            .buttonStyle(.plain)
-            .padding(.trailing, 8)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(Date().formatted(date: .long, time: .omitted))
-                    .font(.caption.bold())
-                    .foregroundColor(.secondary)
-                    .textCase(.uppercase)
-                    .tracking(1)
-                
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("Journal")
-                    .font(.system(size: 34, weight: .bold, design: .serif))
+                    .font(.system(size: 32, weight: .bold, design: .serif))
                     .foregroundColor(settings.theme.textColor)
+                
+                Text(Date().formatted(date: .long, time: .omitted))
+                    .font(getFont(size: 13))
+                    .foregroundColor(.secondary)
             }
             
             Spacer()
             
             Button(action: { showSettings = true }) {
                 Image(systemName: "gearshape.fill")
+                    .font(.system(size: 18))
                     .foregroundColor(.secondary)
-                    .padding(10)
-                    .background(Color.primary.opacity(0.05))
-                    .clipShape(Circle())
+                    .frame(width: 44, height: 44)
             }
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 20)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+    }
+    
+    private func getFont(size: Double, weight: Font.Weight = .regular) -> Font {
+        switch settings.font {
+        case .sans:
+            return .system(size: size, weight: weight, design: .default)
+        case .serif:
+            return .system(size: size, weight: weight, design: .serif)
+        case .mono:
+            return .system(size: size, weight: weight, design: .monospaced)
+        }
     }
     
     // MARK: - Desktop Layout
@@ -402,14 +351,6 @@ struct JournalHomeView: View {
                         }
                         .padding(.horizontal, 40)
                         
-                        HStack(spacing: 40) {
-                            Button(action: { withAnimation { showActivity = true } }) {
-                                Label("Activity", systemImage: "chart.bar.fill")
-                            }
-                            .buttonStyle(.plain)
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                        }
                         .padding(.bottom, 60)
                         
                         Spacer(minLength: 40)
@@ -750,27 +691,27 @@ struct JournalEntryCard: View {
     @EnvironmentObject var settings: AppSettings
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(entry.date.formatted(date: .abbreviated, time: .shortened))
-                .font(.system(.subheadline, design: .serif).bold())
-                .foregroundColor(settings.theme.textColor)
+                .font(.system(.caption2, design: .rounded).bold())
+                .foregroundColor(.accentColor)
             
             let content = entry.sections?.first?.content ?? entry.content
             Text(content.isEmpty ? "No content" : content)
-                .font(.system(.caption, design: .rounded))
-                .foregroundColor(.secondary)
-                .lineLimit(3)
+                .font(.system(.footnote, design: .serif))
+                .foregroundColor(settings.theme.textColor.opacity(0.8))
+                .lineLimit(4)
                 .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
             
             Spacer(minLength: 0)
         }
-        .padding(16)
-        .frame(height: 120)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .frame(width: 160, height: 120, alignment: .topLeading)
         .background(settings.theme.textColor.opacity(0.04))
-        .cornerRadius(16)
+        .cornerRadius(12)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.primary.opacity(0.06), lineWidth: 1)
         )
     }

@@ -22,7 +22,6 @@
 		42A362EA2F37E39F00F7B00B /* DivineHoursService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362C12F37E39F00F7B00B /* DivineHoursService.swift */; };
 		42A362EB2F37E39F00F7B00B /* StudyHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362D92F37E39F00F7B00B /* StudyHomeView.swift */; };
 		42A362EC2F37E39F00F7B00B /* ScriptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362D52F37E39F00F7B00B /* ScriptureService.swift */; };
-		42A362ED2F37E39F00F7B00B /* UnifiedHeatmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362DC2F37E39F00F7B00B /* UnifiedHeatmapView.swift */; };
 		42A362EE2F37E39F00F7B00B /* NativeTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362CA2F37E39F00F7B00B /* NativeTextView.swift */; };
 		42A362EF2F37E39F00F7B00B /* JournalSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362C72F37E39F00F7B00B /* JournalSection.swift */; };
 		42A362F02F37E39F00F7B00B /* PersonalPrayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362CC2F37E39F00F7B00B /* PersonalPrayerView.swift */; };
@@ -40,6 +39,12 @@
 		42A362FC2F37E39F00F7B00B /* PrayHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362D02F37E39F00F7B00B /* PrayHomeView.swift */; };
 		42A362FD2F37E39F00F7B00B /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 42A362BC2F37E39F00F7B00B /* AppIcon.icns */; };
 		42A362FE2F37E39F00F7B00B /* plan.json in Resources */ = {isa = PBXBuildFile; fileRef = 42A362BD2F37E39F00F7B00B /* plan.json */; };
+		42BE99CE2F3813CF00CBE507 /* JournalEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BE99CB2F3813CF00CBE507 /* JournalEditor.swift */; };
+		42BE99CF2F3813CF00CBE507 /* JournalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BE99CC2F3813CF00CBE507 /* JournalView.swift */; };
+		42BE99D02F3813CF00CBE507 /* StudyDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BE99CD2F3813CF00CBE507 /* StudyDashboardView.swift */; };
+		42BE99D12F3813CF00CBE507 /* IOSJournalEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BE99CA2F3813CF00CBE507 /* IOSJournalEditor.swift */; };
+		42BE99D32F3815EB00CBE507 /* IOSJournalBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BE99D22F3815EB00CBE507 /* IOSJournalBrowserView.swift */; };
+		42BE99D52F3818D900CBE507 /* JournalEntryReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BE99D42F3818D900CBE507 /* JournalEntryReader.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -78,7 +83,12 @@
 		42A362D92F37E39F00F7B00B /* StudyHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyHomeView.swift; sourceTree = "<group>"; };
 		42A362DA2F37E39F00F7B00B /* SymbolPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymbolPicker.swift; sourceTree = "<group>"; };
 		42A362DB2F37E39F00F7B00B /* UbiquitousStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UbiquitousStore.swift; sourceTree = "<group>"; };
-		42A362DC2F37E39F00F7B00B /* UnifiedHeatmapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedHeatmapView.swift; sourceTree = "<group>"; };
+		42BE99CA2F3813CF00CBE507 /* IOSJournalEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSJournalEditor.swift; sourceTree = "<group>"; };
+		42BE99CB2F3813CF00CBE507 /* JournalEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalEditor.swift; sourceTree = "<group>"; };
+		42BE99CC2F3813CF00CBE507 /* JournalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalView.swift; sourceTree = "<group>"; };
+		42BE99CD2F3813CF00CBE507 /* StudyDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyDashboardView.swift; sourceTree = "<group>"; };
+		42BE99D22F3815EB00CBE507 /* IOSJournalBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSJournalBrowserView.swift; sourceTree = "<group>"; };
+		42BE99D42F3818D900CBE507 /* JournalEntryReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalEntryReader.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -159,9 +169,14 @@
 				42A362D72F37E39F00F7B00B /* SettingsView.swift */,
 				42A362D82F37E39F00F7B00B /* StudyArticleCard.swift */,
 				42A362D92F37E39F00F7B00B /* StudyHomeView.swift */,
+				42BE99D22F3815EB00CBE507 /* IOSJournalBrowserView.swift */,
+				42BE99CA2F3813CF00CBE507 /* IOSJournalEditor.swift */,
+				42BE99CB2F3813CF00CBE507 /* JournalEditor.swift */,
+				42BE99CC2F3813CF00CBE507 /* JournalView.swift */,
+				42BE99CD2F3813CF00CBE507 /* StudyDashboardView.swift */,
 				42A362DA2F37E39F00F7B00B /* SymbolPicker.swift */,
 				42A362DB2F37E39F00F7B00B /* UbiquitousStore.swift */,
-				42A362DC2F37E39F00F7B00B /* UnifiedHeatmapView.swift */,
+				42BE99D42F3818D900CBE507 /* JournalEntryReader.swift */,
 			);
 			path = Pensive;
 			sourceTree = "<group>";
@@ -262,18 +277,23 @@
 				42A362EA2F37E39F00F7B00B /* DivineHoursService.swift in Sources */,
 				42A362EB2F37E39F00F7B00B /* StudyHomeView.swift in Sources */,
 				42A362EC2F37E39F00F7B00B /* ScriptureService.swift in Sources */,
-				42A362ED2F37E39F00F7B00B /* UnifiedHeatmapView.swift in Sources */,
 				42A362EE2F37E39F00F7B00B /* NativeTextView.swift in Sources */,
 				42A362EF2F37E39F00F7B00B /* JournalSection.swift in Sources */,
 				42A362F02F37E39F00F7B00B /* PersonalPrayerView.swift in Sources */,
 				42A362F12F37E39F00F7B00B /* JournalHomeView.swift in Sources */,
 				42A362F22F37E39F00F7B00B /* UbiquitousStore.swift in Sources */,
+				42BE99D32F3815EB00CBE507 /* IOSJournalBrowserView.swift in Sources */,
 				42A362F32F37E39F00F7B00B /* HomeView.swift in Sources */,
 				42A362F42F37E39F00F7B00B /* PensiveApp.swift in Sources */,
 				42A362F52F37E39F00F7B00B /* FeedManagementView.swift in Sources */,
 				42A362F62F37E39F00F7B00B /* SymbolPicker.swift in Sources */,
 				42A362F72F37E39F00F7B00B /* JournalEntry.swift in Sources */,
 				42A362F82F37E39F00F7B00B /* MasonryViews.swift in Sources */,
+				42BE99CE2F3813CF00CBE507 /* JournalEditor.swift in Sources */,
+				42BE99CF2F3813CF00CBE507 /* JournalView.swift in Sources */,
+				42BE99D02F3813CF00CBE507 /* StudyDashboardView.swift in Sources */,
+				42BE99D12F3813CF00CBE507 /* IOSJournalEditor.swift in Sources */,
+				42BE99D52F3818D900CBE507 /* JournalEntryReader.swift in Sources */,
 				42A362F92F37E39F00F7B00B /* StudyArticleCard.swift in Sources */,
 				42A362FA2F37E39F00F7B00B /* PubMedService.swift in Sources */,
 				42A362FB2F37E39F00F7B00B /* LocationManager.swift in Sources */,

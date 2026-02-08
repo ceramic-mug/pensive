@@ -4,8 +4,17 @@ struct HomeView: View {
     @Binding var sidebarSelection: ContentView.SidebarItem?
     @Binding var selectedEntryID: UUID?
     @EnvironmentObject var settings: AppSettings
+    @Environment(\.horizontalSizeClass) var sizeClass
     @State private var currentDate = Date()
     @State private var timer: Timer?
+    
+    private var isCompact: Bool {
+        #if os(iOS)
+        return sizeClass == .compact
+        #else
+        return false
+        #endif
+    }
     
     // Greeting based on time of day
     var greeting: String {
@@ -20,7 +29,7 @@ struct HomeView: View {
     // Formatted date string
     var dateString: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE, MMM d • h:mm a"
+        formatter.dateFormat = isCompact ? "EEEE, MMM d" : "EEEE, MMM d • h:mm a"
         return formatter.string(from: currentDate)
     }
     
@@ -29,23 +38,23 @@ struct HomeView: View {
             settings.theme.backgroundColor
                 .ignoresSafeArea()
             
-            VStack(spacing: 40) {
+            VStack(spacing: isCompact ? 24 : 40) {
                 Spacer()
                 
                 // Header Section
                 VStack(spacing: 8) {
                     Text(greeting)
-                        .font(.system(size: 42, weight: .light, design: .serif))
+                        .font(.system(size: isCompact ? 32 : 42, weight: .light, design: .serif))
                         .foregroundColor(settings.theme.textColor)
                     
                     Text(dateString)
-                        .font(.system(size: 18, weight: .medium, design: .serif)) // Monospaced numbers for stable clock
+                        .font(.system(size: isCompact ? 15 : 18, weight: .medium, design: .serif))
                         .monospacedDigit()
                         .foregroundColor(settings.theme.textColor.opacity(0.6))
                 }
                 
                 // Tiles List
-                VStack(spacing: 20) {
+                VStack(spacing: isCompact ? 14 : 20) {
                     HomeTile(
                         title: "Scripture",
                         icon: "book",
@@ -79,30 +88,19 @@ struct HomeView: View {
                         sidebarSelection = .study
                     }
                 }
-                .padding(.horizontal, 40)
-                .frame(maxWidth: 350)
+                .padding(.horizontal, isCompact ? 24 : 40)
+                .frame(maxWidth: isCompact ? .infinity : 350)
                 
                 Spacer()
             }
+            .padding(.top, isCompact ? 20 : 0)
         }
-        .overlay(alignment: .topTrailing) {
-            #if !os(macOS)
-            Button(action: { 
-                NotificationCenter.default.post(name: NSNotification.Name("ShowSettings"), object: nil)
-            }) {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 20))
-                    .padding()
-            }
-            .padding(.top, 10)
-            #endif
-        }
+        .ignoresSafeArea(.container, edges: .bottom)
+        .toolbar(.hidden, for: .tabBar)
         .onAppear {
-            // Update time every second
             timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                 currentDate = Date()
             }
-            // Update immediately on appear to catch seconds drift
             currentDate = Date()
         }
         .onDisappear {

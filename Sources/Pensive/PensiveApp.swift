@@ -49,7 +49,10 @@ struct PensiveApp: App {
                     // Setup preference mirroring on a background task to avoid blocking launch
                     Task.detached(priority: .utility) {
                         await UbiquitousStore.shared.setupMirroring(keys: [
-                            "theme", "font", "textSize", "editorWidth", "marginPercentage", "esvApiKey"
+                            "theme", // Shared across platforms
+                            "iOS_font", "iOS_textSize", "iOS_marginPercentage",
+                            "macOS_font", "macOS_textSize", "macOS_marginPercentage",
+                            "editorWidth", "esvApiKey"
                         ])
                     }
                 }
@@ -72,12 +75,22 @@ struct PensiveApp: App {
 }
 
 class AppSettings: ObservableObject {
+    // Shared across platforms
     @AppStorage("theme") var theme: AppTheme = .light
-    @AppStorage("font") var font: AppFont = .sans
-    @AppStorage("textSize") var textSize: Double = 20
-    @AppStorage("editorWidth") var editorWidth: Double = 750
-    @AppStorage("marginPercentage") var marginPercentage: Double = 0.15
     @AppStorage("esvApiKey") var esvApiKey: String = "623bc74f74405b90cf7e98cc74215d2ea217f13a"
+    
+    // Platform-specific formatting settings
+    #if os(iOS)
+    @AppStorage("iOS_font") var font: AppFont = .serif
+    @AppStorage("iOS_textSize") var textSize: Double = 18
+    @AppStorage("iOS_marginPercentage") var marginPercentage: Double = 0.05
+    #else
+    @AppStorage("macOS_font") var font: AppFont = .sans
+    @AppStorage("macOS_textSize") var textSize: Double = 20
+    @AppStorage("macOS_marginPercentage") var marginPercentage: Double = 0.15
+    #endif
+    
+    @AppStorage("editorWidth") var editorWidth: Double = 750
     
     // Study Settings
     @AppStorage("studyLayoutStyle") var studyLayoutStyle: StudyLayoutStyle = .grid
@@ -139,6 +152,17 @@ enum AppFont: String, CaseIterable, Identifiable {
         case .sans: return "system"
         case .serif: return "Iowan Old Style"
         case .mono: return "SF Mono"
+        }
+    }
+    
+    func swiftUIFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        switch self {
+        case .sans:
+            return .system(size: size, weight: weight, design: .default)
+        case .serif:
+            return .custom("Iowan Old Style", size: size).weight(weight)
+        case .mono:
+            return .system(size: size, weight: weight, design: .monospaced)
         }
     }
 }

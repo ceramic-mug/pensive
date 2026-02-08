@@ -5,23 +5,23 @@ struct StudyHomeView: View {
     @Binding var sidebarSelection: ContentView.SidebarItem?
     @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var rssService: RSSService
+    @Environment(\.horizontalSizeClass) var sizeClass
     @Query(sort: \RSSFeed.name) private var feeds: [RSSFeed]
     @Query(sort: \ReadArticle.dateRead, order: .reverse) private var readArticles: [ReadArticle]
     
-    var onSelectFeed: (RSSFeed?, StudySortOrder) -> Void
+    var onSelectFeed: (RSSFeed?) -> Void
     
-    @State private var showActivity = false
+    private var isCompact: Bool {
+        #if os(iOS)
+        return sizeClass == .compact
+        #else
+        return false
+        #endif
+    }
+    
     @State private var showFeedManager = false
     @State private var selectedFeed: RSSFeed? = nil // nil means "All"
-    @State private var sortOrder: StudySortOrder = .recent
-    
-    enum StudySortOrder: String, CaseIterable, Identifiable {
-        case recent = "Most Recent"
-        case alphabeticalTitle = "Title A-Z"
-        case alphabeticalAuthor = "Author A-Z"
-        case random = "Random Shuffle"
-        var id: String { self.rawValue }
-    }
+    @State private var showSettings = false
     
     var body: some View {
         ZStack {
@@ -29,44 +29,48 @@ struct StudyHomeView: View {
             
             GeometryReader { geo in
                 ZStack(alignment: .topLeading) {
-                    // Header Area (Fixed)
-                    HStack {
-                        Button(action: { sidebarSelection = .home }) {
-                            Image(systemName: "arrow.left")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(settings.theme.textColor.opacity(0.6))
-                                .padding(10)
-                                .background(Circle().fill(settings.theme.textColor.opacity(0.05)))
-                        }
-                        .buttonStyle(.plain)
-                        .padding()
-                        Spacer()
-                    }
-                    .padding(.top, 40)
-                    .zIndex(2)
-                    
-                    ScrollView {
-                        VStack(spacing: 32) {
-                            Spacer(minLength: 40)
-                            
-                            VStack(spacing: 8) {
-                                Text("Study")
-                                    .font(.system(size: 64, weight: .bold, design: .serif))
-                                    .foregroundColor(settings.theme.textColor)
-                                
-                                Text("Choose a source to begin reading")
-                                    .font(.system(.subheadline, design: .rounded).bold())
-                                    .foregroundColor(.secondary)
-                                    .padding(.top, 4)
+                    // Header Area (Fixed) - Only on non-compact
+                    if !isCompact {
+                        HStack {
+                            Button(action: { sidebarSelection = .home }) {
+                                Image(systemName: "arrow.left")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(settings.theme.textColor.opacity(0.6))
+                                    .padding(10)
+                                    .background(Circle().fill(settings.theme.textColor.opacity(0.05)))
                             }
+                            .buttonStyle(.plain)
+                            .padding()
+                            Spacer()
+                        }
+                        .padding(.top, 40)
+                        .zIndex(2)
+                    }
+                    
+                    VStack(spacing: 0) {
+                        if isCompact {
+                            iosHeader
+                        }
+                        
+                        ScrollView {
+                            VStack(spacing: isCompact ? 24 : 32) {
+                                Spacer(minLength: isCompact ? 20 : 40)
+                                
+                                VStack(spacing: 8) {
+                                    Text("Choose a source to begin reading")
+                                        .font(getFont(size: isCompact ? 13 : 16, weight: .bold))
+                                        .foregroundColor(.secondary)
+                                        .padding(.top, 4)
+                                }
                             
-                            VStack(spacing: 32) {
-                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180, maximum: 220), spacing: 20)], spacing: 20) {
+                            VStack(spacing: isCompact ? 24 : 32) {
+                                LazyVGrid(columns: [GridItem(.adaptive(minimum: isCompact ? 110 : 160, maximum: isCompact ? 160 : 200), spacing: isCompact ? 12 : 18)], spacing: isCompact ? 12 : 18) {
                                     // "All" option
                                     FeedTile(
                                         title: "All Feeds",
                                         color: .accentColor,
-                                        isSelected: selectedFeed == nil
+                                        isSelected: selectedFeed == nil,
+                                        isCompact: isCompact
                                     ) {
                                         selectedFeed = nil
                                         navigateToDashboard()
@@ -77,146 +81,108 @@ struct StudyHomeView: View {
                                         FeedTile(
                                             title: feed.name,
                                             color: .orange,
-                                            isSelected: selectedFeed?.id == feed.id
+                                            isSelected: selectedFeed?.id == feed.id,
+                                            isCompact: isCompact
                                         ) {
                                             selectedFeed = feed
                                             navigateToDashboard()
                                         }
+                                    }
+                                    
+                                    // Feed Management Tile
+                                    ManagementTile(isCompact: isCompact) {
+                                        showFeedManager = true
                                     }
                                 }
                                 
                                 if !readArticles.isEmpty {
                                     VStack(alignment: .leading, spacing: 16) {
                                         Text("Previously Read")
-                                            .font(.system(.title3, design: .serif).bold())
+                                            .font(getFont(size: isCompact ? 18 : 22, weight: .bold))
                                             .foregroundColor(settings.theme.textColor.opacity(0.8))
                                         
                                         ScrollView(.horizontal, showsIndicators: false) {
-                                            HStack(spacing: 16) {
+                                            HStack(spacing: isCompact ? 12 : 16) {
                                                 ForEach(readArticles.prefix(10)) { article in
                                                     HistoryCard(article: article)
-                                                        .frame(width: 240)
+                                                        .frame(width: isCompact ? 180 : 240)
                                                 }
                                             }
                                         }
                                     }
-                                    .padding(.top, 20)
+                                    .padding(.top, isCompact ? 12 : 20)
                                 }
                             }
-                            .padding(.horizontal, 40)
+                            .padding(.horizontal, isCompact ? 20 : 40)
                             .frame(maxWidth: 1000)
                             
-                            Spacer(minLength: 40)
+                            Spacer(minLength: isCompact ? 20 : 40)
                         }
                         .frame(maxWidth: .infinity)
-                        .frame(minHeight: geo.size.height)
+                        .frame(minHeight: geo.size.height - (isCompact ? 80 : 0))
+                    }
                     }
                     
-                    VStack {
-                        Spacer()
-                        // Footer Controls
-                        HStack(spacing: 32) {
-                            sortMenu
-                                .fixedSize()
-                            
-                            Divider()
-                                .frame(height: 20)
-                                .opacity(0.1)
-                            
-                            Button(action: { showFeedManager = true }) {
-                                Label("Manage Feeds", systemImage: "pencil.and.outline")
-                            }
-                            .buttonStyle(.plain)
-                            
-                            Button(action: { withAnimation { showActivity = true } }) {
-                                Label("Activity", systemImage: "chart.bar.fill")
-                            }
-                            .buttonStyle(.plain)
+                    if !isCompact {
+                        VStack {
+                            Spacer()
                         }
-                        .font(.system(.subheadline, design: .rounded).bold())
-                        .foregroundColor(.secondary)
-                        .padding(.vertical, 32)
-                        .frame(maxWidth: .infinity)
-                        .background(settings.theme.backgroundColor)
                     }
                 }
             }
             
-            if showActivity {
-                activityOverlay
-            }
         }
         .sheet(isPresented: $showFeedManager) {
             FeedManagementView()
         }
-    }
-    
-    private var header: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Button(action: { sidebarSelection = .home }) {
-                    Image(systemName: "arrow.left")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(settings.theme.textColor.opacity(0.6))
-                        .padding(10)
-                        .background(Circle().fill(settings.theme.textColor.opacity(0.05)))
-                }
-                .buttonStyle(.plain)
-                .padding()
-                Spacer()
-            }
-            .padding(.top, 40)
-            
-            Text("Study")
-                .font(.system(size: 64, weight: .bold, design: .serif))
-                .foregroundColor(settings.theme.textColor)
-            
-            Text("Choose a source to begin reading")
-                .font(.system(.subheadline, design: .rounded).bold())
-                .foregroundColor(.secondary)
-                .padding(.top, 4)
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(settings)
         }
     }
     
-    private var sortMenu: some View {
-        Menu {
-            Picker("Sort Order", selection: $sortOrder) {
-                ForEach(StudySortOrder.allCases) { order in
-                    Text(order.rawValue).tag(order)
-                }
+    private var iosHeader: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Study")
+                    .font(.system(size: 32, weight: .bold, design: .serif))
+                    .foregroundColor(settings.theme.textColor)
+                
+                Text(Date().formatted(date: .long, time: .omitted))
+                    .font(getFont(size: 13))
+                    .foregroundColor(.secondary)
             }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "line.3.horizontal.decrease.circle")
-                Text(sortOrder.rawValue)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 10))
-                    .opacity(0.5)
+            
+            Spacer()
+            
+            Button(action: { showSettings = true }) {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(.secondary)
+                    .frame(width: 44, height: 44)
             }
+            .buttonStyle(.plain)
         }
-        .menuStyle(.borderlessButton)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+        .background(settings.theme.backgroundColor)
     }
     
-    private var activityOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.3)
-                .ignoresSafeArea()
-                .onTapGesture { withAnimation { showActivity = false } }
-            
-            VStack {
-                Spacer()
-                UnifiedHeatmapView()
-                    .padding()
-                    .background(settings.theme.backgroundColor)
-                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 32, topTrailingRadius: 32))
-                    .shadow(radius: 20)
-            }
-            .ignoresSafeArea(edges: .bottom)
-        }
-    }
     
     private func navigateToDashboard() {
-        onSelectFeed(selectedFeed, sortOrder)
+        onSelectFeed(selectedFeed)
+    }
+
+    private func getFont(size: Double, weight: Font.Weight = .regular) -> Font {
+        switch settings.font {
+        case .sans:
+            return .system(size: size, weight: weight, design: .default)
+        case .serif:
+            return .system(size: size, weight: weight, design: .serif)
+        case .mono:
+            return .system(size: size, weight: weight, design: .monospaced)
+        }
     }
 }
 
@@ -224,28 +190,29 @@ struct FeedTile: View {
     let title: String
     let color: Color
     let isSelected: Bool
+    var isCompact: Bool = false
     let action: () -> Void
     @EnvironmentObject var settings: AppSettings
     @State private var isHovered = false
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 12) {
+            VStack(spacing: isCompact ? 6 : 10) {
                 Text(title)
-                    .font(.system(.headline, design: .serif).bold())
+                    .font(getFont(size: isCompact ? 14 : 16, weight: .bold))
                     .foregroundColor(settings.theme.textColor.opacity(isSelected ? 1.0 : 0.8))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
-                    .frame(height: 50)
+                    .frame(height: isCompact ? 32 : 44)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 32)
+            .padding(.horizontal, isCompact ? 10 : 16)
+            .padding(.vertical, isCompact ? 16 : 24)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 24)
+                RoundedRectangle(cornerRadius: isCompact ? 16 : 24)
                     .fill(isSelected ? color.opacity(0.15) : settings.theme.textColor.opacity(0.04))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 24)
+                        RoundedRectangle(cornerRadius: isCompact ? 16 : 24)
                             .stroke(isSelected ? color.opacity(0.4) : settings.theme.textColor.opacity(isHovered ? 0.1 : 0), lineWidth: 2)
                     )
             )
@@ -255,6 +222,17 @@ struct FeedTile: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             isHovered = hovering
+        }
+    }
+
+    private func getFont(size: Double, weight: Font.Weight = .regular) -> Font {
+        switch settings.font {
+        case .sans:
+            return .system(size: size, weight: weight, design: .default)
+        case .serif:
+            return .system(size: size, weight: weight, design: .serif)
+        case .mono:
+            return .system(size: size, weight: weight, design: .monospaced)
         }
     }
 }
@@ -275,9 +253,9 @@ struct HistoryCard: View {
                 .cornerRadius(4)
             
             Text(article.title)
-                .font(.system(.subheadline, design: .serif).bold())
+                .font(getFont(size: 13, weight: .bold))
                 .foregroundColor(settings.theme.textColor)
-                .lineLimit(3)
+                .lineLimit(4)
                 .multilineTextAlignment(.leading)
             
             Spacer()
@@ -308,6 +286,64 @@ struct HistoryCard: View {
         )
         .onHover { hovering in
             isHovered = hovering
+        }
+    }
+
+    private func getFont(size: Double, weight: Font.Weight = .regular) -> Font {
+        switch settings.font {
+        case .sans:
+            return .system(size: size, weight: weight, design: .default)
+        case .serif:
+            return .system(size: size, weight: weight, design: .serif)
+        case .mono:
+            return .system(size: size, weight: weight, design: .monospaced)
+        }
+    }
+}
+
+// MARK: - Management Tile
+struct ManagementTile: View {
+    var isCompact: Bool
+    var action: () -> Void
+    @EnvironmentObject var settings: AppSettings
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: isCompact ? 4 : 8) {
+                Image(systemName: "plus.circle")
+                    .font(.system(size: isCompact ? 18 : 22))
+                    .foregroundColor(settings.theme.textColor.opacity(0.4))
+                
+                Text(isCompact ? "Add" : "Manage Sources")
+                    .font(getFont(size: isCompact ? 11 : 13, weight: .bold))
+                    .foregroundColor(settings.theme.textColor.opacity(0.4))
+            }
+            .padding(.vertical, isCompact ? 16 : 24)
+            .frame(maxWidth: .infinity)
+            .frame(height: isCompact ? 64 : 92)
+            .background(
+                RoundedRectangle(cornerRadius: isCompact ? 16 : 24)
+                    .stroke(settings.theme.textColor.opacity(0.15), style: StrokeStyle(lineWidth: 2, dash: [6]))
+                    .background(settings.theme.textColor.opacity(0.01))
+            )
+            .scaleEffect(isHovered ? 1.02 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isHovered)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+    }
+    
+    private func getFont(size: Double, weight: Font.Weight = .regular) -> Font {
+        switch settings.font {
+        case .sans:
+            return .system(size: size, weight: weight, design: .default)
+        case .serif:
+            return .system(size: size, weight: weight, design: .serif)
+        case .mono:
+            return .system(size: size, weight: weight, design: .monospaced)
         }
     }
 }

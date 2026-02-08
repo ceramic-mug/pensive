@@ -120,7 +120,7 @@ class RSSService: ObservableObject {
         items.shuffle()
     }
     
-    func sortItems(by sortOrder: StudyHomeView.StudySortOrder) {
+    func sortItems(by sortOrder: StudyView.StudySortOrder) {
         switch sortOrder {
         case .recent:
             items.sort(by: { $0.date > $1.date })

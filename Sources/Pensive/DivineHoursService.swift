@@ -96,6 +96,8 @@ class DivineHoursService: ObservableObject {
                 for citMatch in citationMatches {
                     let citText = nsPart.substring(with: citMatch.range(at: 1))
                         .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                        // Strip leading dashes (unicode em-dash, en-dash, or hyphen)
+                        .replacingOccurrences(of: "^[—–-]+\\s*", with: "", options: .regularExpression)
                         .replacingOccurrences(of: "&mdash;", with: "")
                         .replacingOccurrences(of: "<!-- -->", with: "")
                         .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -152,19 +154,18 @@ class DivineHoursService: ObservableObject {
         // Remove residual tags
         content = content.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
         
-        let proseTitles = ["A Reading", "The Prayer Appointed for the Week", "The Concluding Prayer of the Church", "The Collect"]
-        let isProse = proseTitles.contains(where: { sectionTitle.localizedCaseInsensitiveContains($0) })
+        let proseSections = ["A Reading", "The Prayer Appointed for the Week", "The Concluding Prayer of the Church", "The Collect"]
+        let isProseOnly = proseSections.contains(where: { sectionTitle.localizedCaseInsensitiveContains($0) })
         
-        if isProse {
-            // Collapse single newlines into spaces, preserve double newlines
-            // First, protect double newlines
-            let placeholder = "[[PARAGRAPH_BREAK]]"
-            content = content.replacingOccurrences(of: "\n\n", with: placeholder)
-            // Collapse single newlines
-            content = content.replacingOccurrences(of: "\n", with: " ")
-            // Restore paragraph breaks
-            content = content.replacingOccurrences(of: placeholder, with: "\n\n")
-        }
+        // Collapse single newlines into spaces, preserve double newlines
+        // This makes psalms, hymns, and prose flow naturally on small screens
+        // First, protect double newlines
+        let placeholder = "[[PARAGRAPH_BREAK]]"
+        content = content.replacingOccurrences(of: "\n\n", with: placeholder)
+        // Collapse single newlines
+        content = content.replacingOccurrences(of: "\n", with: " ")
+        // Restore paragraph breaks
+        content = content.replacingOccurrences(of: placeholder, with: "\n\n")
         
         // Normalize whitespace
         content = content.components(separatedBy: .newlines)

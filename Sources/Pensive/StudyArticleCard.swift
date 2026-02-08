@@ -69,9 +69,12 @@ struct StudyArticleCard: View {
                     }
                     
                     if isRead {
-                        Image(systemName: "checkmark")
-                            .foregroundColor(.green.opacity(0.5))
-                            .font(.system(size: 8, weight: .bold))
+                        Button(action: toggleRead) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green.opacity(0.8))
+                                .font(.system(size: 14, weight: .bold))
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 

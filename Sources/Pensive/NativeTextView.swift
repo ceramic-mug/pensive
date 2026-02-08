@@ -231,6 +231,11 @@ struct NativeTextView: UIViewRepresentable {
         textView.isEditable = true
         textView.isScrollEnabled = false // Allows auto-growth
         textView.backgroundColor = .clear
+        
+        // Ensure text wraps correctly
+        textView.textContainer.lineBreakMode = .byWordWrapping
+        textView.textContainer.widthTracksTextView = true
+        
         textView.textContainerInset = UIEdgeInsets(top: 20, left: horizontalPadding + 20, bottom: 20, right: horizontalPadding + 20)
         
         // Toolbar for closing keyboard
@@ -275,7 +280,9 @@ struct NativeTextView: UIViewRepresentable {
     }
     
     func updateHeight(_ textView: UITextView) {
-        let size = textView.sizeThatFits(CGSize(width: textView.frame.width, height: .infinity))
+        // Use the current frame width if available, otherwise fallback to screen width to prevent overflow
+        let width = textView.frame.width > 0 ? textView.frame.width : (UIScreen.main.bounds.width - (horizontalPadding * 2) - 40)
+        let size = textView.sizeThatFits(CGSize(width: width, height: .infinity))
         if abs(height - size.height) > 1 {
             DispatchQueue.main.async {
                 self.height = size.height
@@ -326,6 +333,12 @@ struct NativeTextView: UIViewRepresentable {
             if parent.isPickerPresented {
                 parent.isPickerPresented = false
             }
+        }
+        
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            // Move cursor to end on open
+            let newPosition = textView.endOfDocument
+            textView.selectedTextRange = textView.textRange(from: newPosition, to: newPosition)
         }
         
         @objc func doneTapped() {
