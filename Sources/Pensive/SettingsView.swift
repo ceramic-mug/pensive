@@ -13,6 +13,7 @@ struct SettingsView: View {
             Form {
                 appearanceSection
                 scriptureSection
+                institutionalProxySection
                 dataMigrationSection
                 aboutSection
             }
@@ -62,6 +63,36 @@ struct SettingsView: View {
                     .onChange(of: settings.textSize) { oldValue, newValue in
                         UbiquitousStore.shared.set(newValue, forKey: "textSize")
                     }
+            }
+        }
+    }
+
+    private var institutionalProxySection: some View {
+        Section(header: Text("Institutional Proxy")) {
+            Toggle("Enable Proxy", isOn: $settings.useInstitutionalProxy)
+                .onChange(of: settings.useInstitutionalProxy) { _, newValue in
+                    UbiquitousStore.shared.set(newValue, forKey: "useInstitutionalProxy")
+                }
+            
+            if settings.useInstitutionalProxy {
+                Picker("Proxy Type", selection: $settings.proxyType) {
+                    ForEach(ProxyType.allCases) { type in
+                        Text(type.rawValue).tag(type)
+                    }
+                }
+                .onChange(of: settings.proxyType) { _, newValue in
+                    UbiquitousStore.shared.set(newValue.rawValue, forKey: "proxyType")
+                }
+                
+                TextField(settings.proxyType == .domainReplacement ? "Proxy Root (e.g. marshall.idm.oclc.org)" : "URL Prefix (e.g. https://proxy.edu/login?url=)", text: $settings.proxyRoot)
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: settings.proxyRoot) { _, newValue in
+                        UbiquitousStore.shared.set(newValue, forKey: "proxyRoot")
+                    }
+                
+                Text(settings.proxyType == .domainReplacement ? "Example: nejm.org -> www-nejm-org.\(settings.proxyRoot.isEmpty ? "proxy.edu" : settings.proxyRoot)" : "Articles will be opened via the prefix.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
     }

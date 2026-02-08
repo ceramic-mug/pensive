@@ -115,7 +115,7 @@ struct StudyArticleCard: View {
                 Label(isStarred ? "Unstar" : "Star", systemImage: isStarred ? "star.slash" : "star")
             }
             Divider()
-            Button(action: { if let url = URL(string: item.link) { openURL(url) } }) {
+            Button(action: { if let url = URL(string: item.link)?.proxied(using: settings) { openURL(url) } }) {
                 Label("Open in Browser", systemImage: "safari")
             }
         }
@@ -125,7 +125,7 @@ struct StudyArticleCard: View {
         isTapped = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
             isTapped = false
-            if let url = URL(string: item.link) {
+            if let url = URL(string: item.link)?.proxied(using: settings) {
                 openURL(url)
                 markAsRead()
             }

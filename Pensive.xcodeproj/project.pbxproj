@@ -46,6 +46,7 @@
 		42BE99D32F3815EB00CBE507 /* IOSJournalBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BE99D22F3815EB00CBE507 /* IOSJournalBrowserView.swift */; };
 		42BE99D52F3818D900CBE507 /* JournalEntryReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BE99D42F3818D900CBE507 /* JournalEntryReader.swift */; };
 		42BE99D72F3826D800CBE507 /* UnifiedModuleHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BE99D62F3826D800CBE507 /* UnifiedModuleHeader.swift */; };
+		42A362FF2F37E39F00F7B00B /* URL+Proxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A362DC2F37E39F00F7B00B /* URL+Proxy.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -91,6 +92,7 @@
 		42BE99D22F3815EB00CBE507 /* IOSJournalBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSJournalBrowserView.swift; sourceTree = "<group>"; };
 		42BE99D42F3818D900CBE507 /* JournalEntryReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalEntryReader.swift; sourceTree = "<group>"; };
 		42BE99D62F3826D800CBE507 /* UnifiedModuleHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedModuleHeader.swift; sourceTree = "<group>"; };
+		42A362DC2F37E39F00F7B00B /* URL+Proxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URL+Proxy.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -179,6 +181,7 @@
 				42BE99CD2F3813CF00CBE507 /* StudyDashboardView.swift */,
 				42A362DA2F37E39F00F7B00B /* SymbolPicker.swift */,
 				42A362DB2F37E39F00F7B00B /* UbiquitousStore.swift */,
+				42A362DC2F37E39F00F7B00B /* URL+Proxy.swift */,
 				42BE99D42F3818D900CBE507 /* JournalEntryReader.swift */,
 			);
 			path = Pensive;
@@ -302,6 +305,7 @@
 				42A362FB2F37E39F00F7B00B /* LocationManager.swift in Sources */,
 				42A362FC2F37E39F00F7B00B /* PrayHomeView.swift in Sources */,
 				42BE99D72F3826D800CBE507 /* UnifiedModuleHeader.swift in Sources */,
+				42A362FF2F37E39F00F7B00B /* URL+Proxy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -313,6 +317,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Pensive/Pensive.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -359,6 +364,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Pensive/Pensive.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

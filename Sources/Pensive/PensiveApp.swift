@@ -52,7 +52,8 @@ struct PensiveApp: App {
                             "theme", // Shared across platforms
                             "iOS_font", "iOS_textSize", "iOS_marginPercentage",
                             "macOS_font", "macOS_textSize", "macOS_marginPercentage",
-                            "editorWidth", "esvApiKey"
+                            "editorWidth", "esvApiKey",
+                            "useInstitutionalProxy", "proxyType", "proxyRoot"
                         ])
                     }
                 }
@@ -96,6 +97,17 @@ class AppSettings: ObservableObject {
     @AppStorage("studyLayoutStyle") var studyLayoutStyle: StudyLayoutStyle = .grid
     @AppStorage("studyFilter") var studyFilter: StudyFilter = .all
     @AppStorage("studyColumns") var studyColumns: Int = 2
+    
+    // Institutional Proxy
+    @AppStorage("useInstitutionalProxy") var useInstitutionalProxy: Bool = false
+    @AppStorage("proxyType") var proxyType: ProxyType = .domainReplacement
+    @AppStorage("proxyRoot") var proxyRoot: String = ""
+}
+
+enum ProxyType: String, CaseIterable, Identifiable {
+    case domainReplacement = "Domain Replacement"
+    case prefix = "URL Prefix"
+    var id: String { self.rawValue }
 }
 
 enum StudyLayoutStyle: String, CaseIterable, Identifiable {

@@ -571,7 +571,7 @@ struct StudyArticleRow: View {
     
     var body: some View {
         Button(action: {
-            if let url = URL(string: item.link) {
+            if let url = URL(string: item.link)?.proxied(using: settings) {
                 openURL(url)
                 if !isRead {
                     let newRead = ReadArticle(url: item.link, title: item.cleanTitle, category: "Article", publicationName: item.journalName)
@@ -665,7 +665,7 @@ struct StudyArticleRow: View {
                 Label(isStarred ? "Unstar" : "Star", systemImage: isStarred ? "star.slash" : "star")
             }
             Divider()
-            Button(action: { if let url = URL(string: item.link) { openURL(url) } }) {
+            Button(action: { if let url = URL(string: item.link)?.proxied(using: settings) { openURL(url) } }) {
                 Label("Open in Browser", systemImage: "safari")
             }
         }
