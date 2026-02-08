@@ -1,7 +1,8 @@
 import SwiftUI
-import UIKit
 
 #if os(iOS)
+import UIKit
+
 struct IOSJournalEditor: View {
     @Bindable var section: JournalSection
     var fontName: String

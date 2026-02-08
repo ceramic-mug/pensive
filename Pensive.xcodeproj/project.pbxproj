@@ -45,6 +45,7 @@
 		42BE99D12F3813CF00CBE507 /* IOSJournalEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BE99CA2F3813CF00CBE507 /* IOSJournalEditor.swift */; };
 		42BE99D32F3815EB00CBE507 /* IOSJournalBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BE99D22F3815EB00CBE507 /* IOSJournalBrowserView.swift */; };
 		42BE99D52F3818D900CBE507 /* JournalEntryReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BE99D42F3818D900CBE507 /* JournalEntryReader.swift */; };
+		42BE99D72F3826D800CBE507 /* UnifiedModuleHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BE99D62F3826D800CBE507 /* UnifiedModuleHeader.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -89,6 +90,7 @@
 		42BE99CD2F3813CF00CBE507 /* StudyDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyDashboardView.swift; sourceTree = "<group>"; };
 		42BE99D22F3815EB00CBE507 /* IOSJournalBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSJournalBrowserView.swift; sourceTree = "<group>"; };
 		42BE99D42F3818D900CBE507 /* JournalEntryReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalEntryReader.swift; sourceTree = "<group>"; };
+		42BE99D62F3826D800CBE507 /* UnifiedModuleHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedModuleHeader.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -157,6 +159,7 @@
 				42A362CB2F37E39F00F7B00B /* PensiveApp.swift */,
 				42A362CC2F37E39F00F7B00B /* PersonalPrayerView.swift */,
 				42A362CD2F37E39F00F7B00B /* PrayedDay.swift */,
+				42BE99D62F3826D800CBE507 /* UnifiedModuleHeader.swift */,
 				42A362CE2F37E39F00F7B00B /* PrayerArea.swift */,
 				42A362CF2F37E39F00F7B00B /* PrayerItem.swift */,
 				42A362D02F37E39F00F7B00B /* PrayHomeView.swift */,
@@ -298,6 +301,7 @@
 				42A362FA2F37E39F00F7B00B /* PubMedService.swift in Sources */,
 				42A362FB2F37E39F00F7B00B /* LocationManager.swift in Sources */,
 				42A362FC2F37E39F00F7B00B /* PrayHomeView.swift in Sources */,
+				42BE99D72F3826D800CBE507 /* UnifiedModuleHeader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

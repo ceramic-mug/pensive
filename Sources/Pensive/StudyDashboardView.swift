@@ -129,19 +129,21 @@ struct StudyDashboardView: View {
         .animation(.easeInOut(duration: 0.4), value: isShuffling)
         .onAppear {
             selectedJournal = selectedFeed
-            applyFeedSelection()
             
             if allFeeds.isEmpty {
+                // If feeds set is empty, insert defaults and fetch from them directly
                 for feed in RSSFeed.defaults {
                     modelContext.insert(feed)
                 }
+                // Use the defaults directly for the initial fetch (don't wait for SwiftData)
+                rssService.fetchAllFeeds(feeds: RSSFeed.defaults)
+            } else {
+                applyFeedSelection()
             }
         }
-        .onChange(of: selectedJournal) { _, newValue in
-            applyFeedSelection()
-        }
-        .onChange(of: allFeeds) { _, _ in
-            if selectedJournal == nil {
+        .onChange(of: allFeeds) { oldVal, newVal in
+            // Re-apply selection when feeds become available (e.g., after CloudKit sync)
+            if oldVal.isEmpty && !newVal.isEmpty && selectedJournal == nil {
                 applyFeedSelection()
             }
         }
@@ -161,7 +163,9 @@ struct StudyDashboardView: View {
         if let journal = selectedJournal {
             rssService.fetchFeed(url: journal.rssURL!, journalName: journal.name)
         } else {
-            rssService.fetchAllFeeds(feeds: Array(allFeeds))
+            // Use allFeeds if available, otherwise fall back to defaults
+            let feedsToFetch = allFeeds.isEmpty ? RSSFeed.defaults : Array(allFeeds)
+            rssService.fetchAllFeeds(feeds: feedsToFetch)
         }
         rssService.sortItems(by: sortOrder)
     }
@@ -313,147 +317,169 @@ struct StudyHeader: View {
                 .padding(.horizontal)
                 .padding(.top, 8)
             } else {
-                HStack(spacing: 20) {
-                    Button(action: onBack) {
-                        Image(systemName: "arrow.left")
-                            .font(.system(size: 14, weight: .bold))
-                            .padding(8)
-                            .background(Color.primary.opacity(0.05))
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Study")
-                            .font(.system(.title2, design: .rounded).bold())
-                        
-                        HStack(spacing: 8) {
-                            Image(systemName: "graduationcap.fill")
-                                .font(.system(size: 10))
-                            Text("\(dailyReadCount) articles today")
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
-                        }
-                        .foregroundColor(.accentColor)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.accentColor.opacity(0.1))
-                        .cornerRadius(12)
-                    }
-                    
-                    Spacer()
-                    
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.secondary)
-                        TextField("Search your feeds...", text: $searchText)
-                            .textFieldStyle(.plain)
-                            .font(.system(size: 13))
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.primary.opacity(0.05))
-                    .cornerRadius(10)
-                    .frame(maxWidth: 300)
-                    
+                // MARK: - macOS Desktop Header
+                VStack(spacing: 0) {
+                    // Row 1: Title, Stats, Actions
                     HStack(spacing: 16) {
-                        Picker("Sort By", selection: $sortOrder) {
+                        Button(action: onBack) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Text(selectedJournal?.name ?? "All Feeds")
+                            .font(.system(.title3, design: .rounded).bold())
+                        
+                        // Unread count badge
+                        if rssService.items.count > 0 {
+                            let unreadCount = rssService.items.filter { item in
+                                !readArticles.contains { $0.url == item.link }
+                            }.count
+                            
+                            Text("\(unreadCount) unread")
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .foregroundColor(unreadCount > 0 ? .orange : .secondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(unreadCount > 0 ? Color.orange.opacity(0.12) : Color.secondary.opacity(0.1))
+                                .cornerRadius(6)
+                        }
+                        
+                        Spacer()
+                        
+                        // Refresh button
+                        Button(action: {
+                            rssService.fetchAllFeeds(feeds: Array(feeds))
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .opacity(rssService.isFetching ? 0.3 : 1)
+                        .disabled(rssService.isFetching)
+                        
+                        Button(action: { showFeedManager = true }) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.accentColor)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 16)
+                    .padding(.bottom, 12)
+                    
+                    // Row 2: Toolbar Controls
+                    HStack(spacing: 12) {
+                        // Source Picker (inline)
+                        Picker("Source", selection: $selectedJournal) {
+                            Text("All Sources").tag(Optional<RSSFeed>.none)
+                            Divider()
+                            ForEach(feeds) { feed in
+                                Text(feed.name).tag(Optional(feed))
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .frame(width: 160)
+                        .controlSize(.small)
+                        
+                        Divider().frame(height: 20)
+                        
+                        // Search
+                        HStack(spacing: 6) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.secondary)
+                            TextField("Search...", text: $searchText)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 12))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.primary.opacity(0.04))
+                        .cornerRadius(8)
+                        .frame(maxWidth: 220)
+                        
+                        Spacer()
+                        
+                        // Sort
+                        Picker("Sort", selection: $sortOrder) {
                             ForEach(StudyView.StudySortOrder.allCases) { order in
                                 Text(order.rawValue).tag(order)
                             }
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 140)
+                        .frame(width: 130)
                         .controlSize(.small)
                         
-                        Divider().frame(height: 20).padding(.horizontal, 4)
-                        
+                        // Filter Toggle
                         Picker("Filter", selection: $settings.studyFilter) {
                             Text("All").tag(StudyFilter.all)
                             Text("Unread").tag(StudyFilter.unread)
                         }
                         .pickerStyle(.segmented)
-                        .frame(width: 130)
+                        .frame(width: 110)
                         .controlSize(.small)
                         
+                        Divider().frame(height: 20)
+                        
+                        // View Toggle
                         HStack(spacing: 0) {
                             Button(action: { settings.studyLayoutStyle = .grid }) {
                                 Image(systemName: "square.grid.2x2")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .frame(width: 28, height: 24)
                             }
-                            .padding(8)
+                            .buttonStyle(.plain)
                             .background(settings.studyLayoutStyle == .grid ? Color.accentColor.opacity(0.15) : Color.clear)
                             .foregroundColor(settings.studyLayoutStyle == .grid ? .accentColor : .secondary)
                             
-                            Divider().frame(height: 16)
-                            
                             Button(action: { settings.studyLayoutStyle = .list }) {
                                 Image(systemName: "list.bullet")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .frame(width: 28, height: 24)
                             }
-                            .padding(8)
+                            .buttonStyle(.plain)
                             .background(settings.studyLayoutStyle == .list ? Color.accentColor.opacity(0.15) : Color.clear)
                             .foregroundColor(settings.studyLayoutStyle == .list ? .accentColor : .secondary)
                         }
-                        .background(Color.primary.opacity(0.05))
-                        .cornerRadius(8)
+                        .background(Color.primary.opacity(0.04))
+                        .cornerRadius(6)
                         
+                        // Column adjuster (grid only)
                         if settings.studyLayoutStyle == .grid {
-                            HStack(spacing: 4) {
+                            HStack(spacing: 2) {
                                 Button(action: { if settings.studyColumns > 1 { settings.studyColumns -= 1 } }) {
                                     Image(systemName: "minus")
-                                        .font(.system(size: 10, weight: .bold))
+                                        .font(.system(size: 9, weight: .bold))
+                                        .frame(width: 20, height: 20)
                                 }
+                                .buttonStyle(.plain)
+                                
                                 Text("\(settings.studyColumns)")
-                                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                    .frame(width: 20)
+                                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                    .frame(width: 16)
+                                
                                 Button(action: { if settings.studyColumns < 6 { settings.studyColumns += 1 } }) {
                                     Image(systemName: "plus")
-                                        .font(.system(size: 10, weight: .bold))
+                                        .font(.system(size: 9, weight: .bold))
+                                        .frame(width: 20, height: 20)
                                 }
+                                .buttonStyle(.plain)
                             }
-                            .padding(4)
-                            .background(Color.primary.opacity(0.05))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 4)
+                            .background(Color.primary.opacity(0.04))
                             .cornerRadius(6)
                         }
                     }
-                    
-                    Button(action: { showFeedManager = true }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(width: 32, height: 32)
-                            .background(Color.accentColor)
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 12)
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 16)
                 .background(settings.theme.backgroundColor)
-                .overlay(Rectangle().frame(height: 1).foregroundColor(Color.primary.opacity(0.05)), alignment: .bottom)
             }
-            
-            HStack {
-                Text("Source:")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.secondary)
-                
-                Picker("Journal", selection: $selectedJournal) {
-                    Text("All Sources").tag(Optional<RSSFeed>.none)
-                    Divider()
-                    ForEach(feeds) { feed in
-                        Text(feed.name).tag(Optional(feed))
-                    }
-                }
-                .pickerStyle(.menu)
-                .labelsHidden()
-                .frame(width: 200)
-                
-                Spacer()
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 12)
         }
         .background(settings.theme.backgroundColor)
         .overlay(Divider(), alignment: .bottom)
@@ -473,6 +499,12 @@ struct StudyContent: View {
     
     var filteredItems: [RSSItem] {
         var items = rssService.items
+        
+        // Filter by selected source/journal
+        if let journal = selectedJournal {
+            items = items.filter { $0.journalName == journal.name }
+        }
+        
         if settings.studyFilter == .unread {
             let readUrls = Set(readArticles.map { $0.url })
             items = items.filter { !readUrls.contains($0.link) }
@@ -527,9 +559,14 @@ struct StudyArticleRow: View {
     @Query private var readArticles: [ReadArticle]
     @EnvironmentObject var settings: AppSettings
     @Environment(\.openURL) private var openURL
+    @State private var isHovering = false
     
     var isRead: Bool {
         readArticles.contains { $0.url == item.link }
+    }
+    
+    var isStarred: Bool {
+        readArticles.first(where: { $0.url == item.link })?.isFlagged ?? false
     }
     
     var body: some View {
@@ -543,48 +580,95 @@ struct StudyArticleRow: View {
             }
         }) {
             HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.cleanTitle)
-                        .font(.system(.headline, design: .serif))
-                        .foregroundColor(settings.theme.textColor.opacity(isRead ? 0.5 : 1.0))
-                    
-                    HStack {
-                        Text(item.journalName)
-                            .font(.caption.bold())
+                // Read indicator (left edge)
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(isRead ? Color.clear : Color.accentColor)
+                    .frame(width: 3)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    // Metadata row
+                    HStack(spacing: 8) {
+                        Text(item.journalName.uppercased())
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
                             .foregroundColor(.accentColor)
-                        Text("•")
+                        
                         Text(item.date.formatted(date: .abbreviated, time: .omitted))
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundColor(.secondary)
+                        
+                        if isStarred {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 9))
+                                .foregroundColor(.orange)
+                        }
                     }
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    
+                    // Title
+                    Text(item.cleanTitle)
+                        .font(.system(.body, design: .serif))
+                        .fontWeight(.medium)
+                        .foregroundColor(settings.theme.textColor.opacity(isRead ? 0.5 : 1.0))
+                        .lineLimit(2)
                 }
                 
                 Spacer()
                 
-                if isRead {
-                    Button(action: toggleRead) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.green.opacity(0.8))
+                // Quick actions (visible on hover)
+                if isHovering {
+                    HStack(spacing: 8) {
+                        Button(action: toggleStar) {
+                            Image(systemName: isStarred ? "star.fill" : "star")
+                                .font(.system(size: 14))
+                                .foregroundColor(isStarred ? .orange : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: toggleRead) {
+                            Image(systemName: isRead ? "circle" : "checkmark.circle")
+                                .font(.system(size: 14))
+                                .foregroundColor(isRead ? .secondary : .green)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                    .transition(.opacity)
+                } else if isRead {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.green.opacity(0.6))
                 }
                 
                 Image(systemName: "chevron.right")
-                    .font(.caption.bold())
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.secondary.opacity(0.3))
             }
-            .padding(.horizontal)
-            .padding(.vertical, 12)
-            .background(settings.theme.backgroundColor)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+            .background(isHovering ? Color.primary.opacity(0.03) : settings.theme.backgroundColor)
             .overlay(
                 Rectangle()
                     .frame(height: 1)
-                    .foregroundColor(Color.primary.opacity(0.05)),
+                    .foregroundColor(Color.primary.opacity(0.04)),
                 alignment: .bottom
             )
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
+        .contextMenu {
+            Button(action: toggleRead) {
+                Label(isRead ? "Mark as Unread" : "Mark as Read", systemImage: isRead ? "circle" : "checkmark.circle")
+            }
+            Button(action: toggleStar) {
+                Label(isStarred ? "Unstar" : "Star", systemImage: isStarred ? "star.slash" : "star")
+            }
+            Divider()
+            Button(action: { if let url = URL(string: item.link) { openURL(url) } }) {
+                Label("Open in Browser", systemImage: "safari")
+            }
+        }
     }
     
     private func toggleRead() {
@@ -594,6 +678,16 @@ struct StudyArticleRow: View {
             }
         } else {
             let newRead = ReadArticle(url: item.link, title: item.cleanTitle, category: "Article", publicationName: item.journalName)
+            modelContext.insert(newRead)
+        }
+    }
+    
+    private func toggleStar() {
+        if let existing = readArticles.first(where: { $0.url == item.link }) {
+            existing.isFlagged.toggle()
+        } else {
+            let newRead = ReadArticle(url: item.link, title: item.cleanTitle, category: "Article", publicationName: item.journalName)
+            newRead.isFlagged = true
             modelContext.insert(newRead)
         }
     }

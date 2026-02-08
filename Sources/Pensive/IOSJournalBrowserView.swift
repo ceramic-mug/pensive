@@ -108,12 +108,20 @@ struct IOSJournalBrowserView: View {
                     }
                 }
                 .navigationTitle("Archive")
+                #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
+                #endif
                 .searchable(text: $searchText, prompt: "Search archive")
                 .toolbar {
+                    #if os(iOS)
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Done") { dismiss() }
                     }
+                    #else
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
+                    }
+                    #endif
                 }
                 .background(settings.theme.backgroundColor)
                 

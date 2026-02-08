@@ -22,20 +22,157 @@ struct JournalHomeView: View {
     @State private var showSettings = false
     @State private var entryToRead: JournalEntry? = nil
     
+    private var isCompact: Bool {
+        #if os(iOS)
+        return sizeClass == .compact
+        #else
+        return false
+        #endif
+    }
+    
     var body: some View {
         ZStack {
             settings.theme.backgroundColor.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                #if os(iOS)
-                if sizeClass == .compact {
-                    iosLayout
-                } else {
-                    desktopLayout
+                UnifiedModuleHeader(
+                    title: "Journal",
+                    subtitle: Date().formatted(date: .long, time: .omitted),
+                    onBack: { sidebarSelection = .home },
+                    onShowSettings: { showSettings = true }
+                )
+                
+                ScrollView {
+                    VStack(spacing: isCompact ? 32 : 60) {
+                        Spacer(minLength: isCompact ? 10 : 40)
+                        
+                        if !isCompact {
+                            VStack(spacing: 40) {
+                                Button(action: addNewEntry) {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "pencil.line")
+                                        Text("Journal Now")
+                                    }
+                                    .font(.system(.title3, design: .rounded).bold())
+                                    .padding(.horizontal, 40)
+                                    .padding(.vertical, 16)
+                                    .background(Color.accentColor)
+                                    .foregroundColor(.white)
+                                    .clipShape(Capsule())
+                                    .shadow(color: Color.accentColor.opacity(0.3), radius: 15, x: 0, y: 8)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        } else {
+                            // Primary Actions for iOS
+                            HStack(spacing: 16) {
+                                Button(action: addNewEntry) {
+                                    VStack(spacing: 12) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.accentColor.opacity(0.1))
+                                                .frame(width: 60, height: 60)
+                                            
+                                            Image(systemName: "pencil.line")
+                                                .font(.system(size: 24))
+                                                .foregroundColor(.accentColor)
+                                        }
+                                        
+                                        Text("Journal Now")
+                                            .font(.system(.headline, design: .rounded).bold())
+                                            .foregroundColor(settings.theme.textColor)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 20)
+                                    .background(settings.theme.textColor.opacity(0.04))
+                                    .cornerRadius(20)
+                                }
+                                .buttonStyle(.plain)
+                                
+                                Button(action: { withAnimation { showLibrary = true } }) {
+                                    VStack(spacing: 12) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.orange.opacity(0.1))
+                                                .frame(width: 60, height: 60)
+                                            
+                                            Image(systemName: "archivebox.fill")
+                                                .font(.system(size: 24))
+                                                .foregroundColor(.orange)
+                                        }
+                                        
+                                        Text("Open Archive")
+                                            .font(.system(.headline, design: .rounded).bold())
+                                            .foregroundColor(settings.theme.textColor)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 20)
+                                    .background(settings.theme.textColor.opacity(0.04))
+                                    .cornerRadius(20)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 24)
+                        }
+                        
+                        // Shared content: Search and Recent
+                        VStack(spacing: isCompact ? 24 : 32) {
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundColor(.secondary)
+                                TextField(isCompact ? "Search your journal..." : "Search your thoughts...", text: $searchText)
+                                    .textFieldStyle(.plain)
+                                    .font(isCompact ? .body : .system(size: 18, weight: .medium, design: .serif))
+                            }
+                            .padding(isCompact ? 14 : 20)
+                            .background(Color.primary.opacity(0.05))
+                            .cornerRadius(isCompact ? 12 : 16)
+                            .padding(.horizontal, isCompact ? 24 : 40)
+                            .frame(maxWidth: 800)
+                            
+                            if !searchText.isEmpty {
+                                SearchResultsList(entries: entries, searchText: searchText, onSelect: { entry in
+                                    withAnimation { entryToRead = entry }
+                                })
+                                .padding(.horizontal, isCompact ? 24 : 40)
+                                .frame(maxWidth: 800)
+                            } else {
+                                VStack(alignment: .leading, spacing: 20) {
+                                    HStack {
+                                        Text("Recent Entries")
+                                            .font(.system(isCompact ? .headline : .title3, design: .serif).bold())
+                                        Spacer()
+                                        if !isCompact {
+                                            Button("Archive") { withAnimation { showLibrary = true } }
+                                                .font(.headline)
+                                                .foregroundColor(.accentColor)
+                                        }
+                                    }
+                                    .padding(.horizontal, isCompact ? 24 : 0)
+                                    
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: isCompact ? 16 : 20) {
+                                            ForEach(entries.prefix(10)) { entry in
+                                                Button(action: { withAnimation { entryToRead = entry } }) {
+                                                    JournalEntryCard(entry: entry)
+                                                        .frame(width: isCompact ? 160 : 280)
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
+                                        }
+                                        .padding(.horizontal, isCompact ? 24 : 0)
+                                        .padding(.vertical, 10)
+                                    }
+                                }
+                                .frame(maxWidth: 800)
+                                .padding(.horizontal, isCompact ? 0 : 40)
+                            }
+                        }
+                        
+                        Spacer(minLength: 40)
+                    }
+                    .padding(.bottom, 60)
                 }
-                #else
-                desktopLayout
-                #endif
             }
             
             if showLibrary {
@@ -108,259 +245,6 @@ struct JournalHomeView: View {
     }
     
     
-    // MARK: - iOS Layout
-    
-    private var iosLayout: some View {
-        ScrollView {
-            VStack(spacing: 32) {
-                iosHeader
-                
-                // Primary Actions
-                HStack(spacing: 16) {
-                    Button(action: addNewEntry) {
-                        VStack(spacing: 12) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.accentColor.opacity(0.1))
-                                    .frame(width: 60, height: 60)
-                                
-                                Image(systemName: "pencil.line")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.accentColor)
-                            }
-                            
-                            Text("Journal Now")
-                                .font(.system(.headline, design: .rounded).bold())
-                                .foregroundColor(settings.theme.textColor)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 20)
-                        .background(settings.theme.textColor.opacity(0.04))
-                        .cornerRadius(20)
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Button(action: { withAnimation { showLibrary = true } }) {
-                        VStack(spacing: 12) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.orange.opacity(0.1))
-                                    .frame(width: 60, height: 60)
-                                
-                                Image(systemName: "archivebox.fill")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.orange)
-                            }
-                            
-                            Text("Open Archive")
-                                .font(.system(.headline, design: .rounded).bold())
-                                .foregroundColor(settings.theme.textColor)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 20)
-                        .background(settings.theme.textColor.opacity(0.04))
-                        .cornerRadius(20)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 10)
-                
-                // Search & Browse
-                VStack(spacing: 24) {
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.secondary)
-                        TextField("Search your journal...", text: $searchText)
-                            .textFieldStyle(.plain)
-                    }
-                    .padding(14)
-                    .background(Color.primary.opacity(0.05))
-                    .cornerRadius(12)
-                    .padding(.horizontal, 24)
-                    
-                    if !searchText.isEmpty {
-                        SearchResultsList(entries: entries, searchText: searchText, onSelect: { entry in
-                            withAnimation { entryToRead = entry }
-                        })
-                        .padding(.horizontal, 24)
-                    } else {
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Text("Recent Entries")
-                                    .font(.system(.headline, design: .serif))
-                                Spacer()
-                            }
-                            .padding(.horizontal, 24)
-                            
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 16) {
-                                    ForEach(entries.prefix(10)) { entry in
-                                        Button(action: { withAnimation { entryToRead = entry } }) {
-                                            JournalEntryCard(entry: entry)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                                .padding(.horizontal, 24)
-                            }
-                        }
-                    }
-                }
-                
-            }
-        }
-    }
-    
-    private var iosHeader: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Journal")
-                    .font(.system(size: 32, weight: .bold, design: .serif))
-                    .foregroundColor(settings.theme.textColor)
-                
-                Text(Date().formatted(date: .long, time: .omitted))
-                    .font(getFont(size: 13))
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            Button(action: { showSettings = true }) {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 18))
-                    .foregroundColor(.secondary)
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-    }
-    
-    private func getFont(size: Double, weight: Font.Weight = .regular) -> Font {
-        switch settings.font {
-        case .sans:
-            return .system(size: size, weight: weight, design: .default)
-        case .serif:
-            return .system(size: size, weight: weight, design: .serif)
-        case .mono:
-            return .system(size: size, weight: weight, design: .monospaced)
-        }
-    }
-    
-    // MARK: - Desktop Layout
-    
-    @ViewBuilder
-    private var desktopLayout: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .topLeading) {
-                // Header Area (Fixed at top)
-                HStack {
-                    Button(action: { sidebarSelection = .home }) {
-                        Image(systemName: "arrow.left")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(settings.theme.textColor.opacity(0.6))
-                            .padding(10)
-                            .background(Circle().fill(settings.theme.textColor.opacity(0.05)))
-                    }
-                    .buttonStyle(.plain)
-                    .padding(24)
-                    
-                    Spacer()
-                    
-                    Button(action: { showSettings = true }) {
-                        Image(systemName: "gearshape.fill")
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(24)
-                }
-                .zIndex(2)
-                
-                ScrollView {
-                    VStack(spacing: 60) {
-                        Spacer(minLength: 40)
-                        
-                        VStack(spacing: 40) {
-                            Text("Journal")
-                                .font(.system(size: 64, weight: .bold, design: .serif))
-                                .foregroundColor(settings.theme.textColor)
-                            
-                            Button(action: addNewEntry) {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "pencil.line")
-                                    Text("Journal Now")
-                                }
-                                .font(.system(.title3, design: .rounded).bold())
-                                .padding(.horizontal, 40)
-                                .padding(.vertical, 16)
-                                .background(Color.accentColor)
-                                .foregroundColor(.white)
-                                .clipShape(Capsule())
-                                .shadow(color: Color.accentColor.opacity(0.3), radius: 15, x: 0, y: 8)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    
-                        VStack(spacing: 32) {
-                            // Integrated Search
-                            HStack {
-                                Image(systemName: "magnifyingglass")
-                                    .foregroundColor(.secondary)
-                                TextField("Search your thoughts...", text: $searchText)
-                                    .textFieldStyle(.plain)
-                                    .font(.system(size: 18, weight: .medium, design: .serif))
-                            }
-                            .padding(20)
-                            .background(Color.primary.opacity(0.04))
-                            .cornerRadius(16)
-                            .frame(maxWidth: 600)
-                            
-                            if !searchText.isEmpty {
-                                SearchResultsList(entries: entries, searchText: searchText, onSelect: { entry in
-                                    withAnimation { entryToRead = entry }
-                                })
-                                .frame(maxWidth: 800)
-                            } else {
-                                VStack(alignment: .leading, spacing: 20) {
-                                    HStack {
-                                        Text("Recent Entries")
-                                            .font(.system(.title3, design: .serif).bold())
-                                        Spacer()
-                                        Button("Archive") { withAnimation { showLibrary = true } }
-                                            .font(.headline)
-                                            .foregroundColor(.accentColor)
-                                    }
-                                    
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        HStack(spacing: 20) {
-                                            ForEach(entries.prefix(10)) { entry in
-                                                Button(action: { withAnimation { entryToRead = entry } }) {
-                                                    JournalEntryCard(entry: entry)
-                                                        .frame(width: 280)
-                                                }
-                                                .buttonStyle(.plain)
-                                            }
-                                        }
-                                        .padding(.vertical, 10)
-                                    }
-                                }
-                                .frame(maxWidth: 800)
-                            }
-                        }
-                        .padding(.horizontal, 40)
-                        
-                        .padding(.bottom, 60)
-                        
-                        Spacer(minLength: 40)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: geo.size.height)
-                }
-            }
-        }
-    }
     
     private func initializeSelection() {
         if selectedYear == nil {

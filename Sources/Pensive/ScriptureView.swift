@@ -72,44 +72,12 @@ struct ScriptureView: View {
     private var overviewLayout: some View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
-                // Unified Header (Matches Journal Style)
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Scripture")
-                            .font(.system(size: 32, weight: .bold, design: .serif))
-                            .foregroundColor(settings.theme.textColor)
-                        
-                        Text(selectedDate.formatted(date: .long, time: .omitted))
-                            .font(getFont(size: 13))
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    if !isCompact {
-                        Button(action: { sidebarSelection = .home }) {
-                            Image(systemName: "arrow.left")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(settings.theme.textColor.opacity(0.6))
-                                .padding(10)
-                                .background(Circle().fill(settings.theme.textColor.opacity(0.05)))
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.trailing, 8)
-                    }
-                    
-                    Button(action: { showSettings = true }) {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 18))
-                            .foregroundColor(.secondary)
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .zIndex(2)
-                .background(settings.theme.backgroundColor) // Ensure readability when scrolling
+                UnifiedModuleHeader(
+                    title: "Scripture",
+                    subtitle: selectedDate.formatted(date: .long, time: .omitted),
+                    onBack: { sidebarSelection = .home },
+                    onShowSettings: { showSettings = true }
+                )
                 
                 ScrollView {
                     VStack(spacing: 40) {

@@ -96,7 +96,9 @@ struct HomeView: View {
             .padding(.top, isCompact ? 20 : 0)
         }
         .ignoresSafeArea(.container, edges: .bottom)
+        #if os(iOS)
         .toolbar(.hidden, for: .tabBar)
+        #endif
         .onAppear {
             timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                 currentDate = Date()

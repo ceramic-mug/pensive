@@ -27,33 +27,17 @@ struct PrayHomeView: View {
                     .ignoresSafeArea()
                 
                 GeometryReader { geo in
-                    ZStack(alignment: .topLeading) {
-                        // Back Arrow (Only on non-compact iOS and macOS)
-                        if !isCompact {
-                            HStack {
-                                Button(action: { sidebarSelection = .home }) {
-                                    Image(systemName: "arrow.left")
-                                        .font(.system(size: 18, weight: .bold))
-                                        .foregroundColor(settings.theme.textColor.opacity(0.6))
-                                        .padding(10)
-                                        .background(Circle().fill(settings.theme.textColor.opacity(0.05)))
-                                }
-                                .buttonStyle(.plain)
-                                .padding()
-                                Spacer()
-                            }
-                            .padding(.top, 40)
-                            .zIndex(2)
-                        }
-
-                        VStack(spacing: 0) {
-                            if isCompact {
-                                iosHeader
-                            }
-                            
-                            ScrollView {
-                                VStack(spacing: isCompact ? 24 : 40) {
-                                    Spacer(minLength: isCompact ? 20 : 60)
+                UnifiedModuleHeader(
+                    title: "Prayer",
+                    subtitle: Date().formatted(date: .long, time: .omitted),
+                    onBack: { sidebarSelection = .home },
+                    onShowSettings: { showSettings = true }
+                )
+                
+                VStack(spacing: 0) {
+                    ScrollView {
+                        VStack(spacing: isCompact ? 24 : 40) {
+                            Spacer(minLength: isCompact ? 10 : 80)
                                     
                                     // Content Section
                                     VStack(spacing: 12) {
@@ -125,7 +109,6 @@ struct PrayHomeView: View {
                     PersonalPrayerView()
                 }
             }
-            }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
                     .environmentObject(settings)
@@ -133,33 +116,6 @@ struct PrayHomeView: View {
         }
     }
     
-    private var iosHeader: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Prayer")
-                    .font(.system(size: 32, weight: .bold, design: .serif))
-                    .foregroundColor(settings.theme.textColor)
-                
-                Text(Date().formatted(date: .long, time: .omitted))
-                    .font(getFont(size: 13))
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            Button(action: { showSettings = true }) {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 18))
-                    .foregroundColor(.secondary)
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
-        .background(settings.theme.backgroundColor)
-    }
 
     private func getFont(size: Double, weight: Font.Weight = .regular) -> Font {
         switch settings.font {

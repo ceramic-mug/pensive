@@ -162,41 +162,46 @@ class RSSService: ObservableObject {
     }
     
     func fetchAllFeeds(feeds: [RSSFeed]) {
-        isFetching = true
-        items = []
-        tempItems = []
-        
-        let publishers = feeds.compactMap { feed -> AnyPublisher<(Data, String), Error>? in
-            guard let url = feed.rssURL else { return nil }
-            var request = URLRequest(url: url)
-            request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
-            
-            return URLSession.shared.dataTaskPublisher(for: request)
-                .map { ($0.data, feed.name) }
-                .catch { _ in Just((Data(), feed.name)) }
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
+        guard !feeds.isEmpty else {
+            isFetching = false
+            return
         }
         
-        Publishers.MergeMany(publishers)
-            .collect()
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { [weak self] _ in
-                DispatchQueue.main.async {
-                    self?.isFetching = false
+        isFetching = true
+        items = []
+        
+        Task { @MainActor in
+            var allItems: [RSSItem] = []
+            
+            await withTaskGroup(of: [RSSItem].self) { group in
+                for feed in feeds {
+                    guard let url = feed.rssURL else { continue }
+                    
+                    group.addTask {
+                        var request = URLRequest(url: url)
+                        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", forHTTPHeaderField: "User-Agent")
+                        
+                        do {
+                            let (data, _) = try await URLSession.shared.data(for: request)
+                            let parser = XMLParser(data: data)
+                            let subParser = SubFeedParser(journalName: feed.name)
+                            parser.delegate = subParser
+                            parser.parse()
+                            return subParser.items
+                        } catch {
+                            return []
+                        }
+                    }
                 }
-            }, receiveValue: { [weak self] results in
-                guard let self = self else { return }
-                for (data, name) in results {
-                    let parser = XMLParser(data: data)
-                    let subParser = SubFeedParser(journalName: name)
-                    parser.delegate = subParser
-                    parser.parse()
-                    self.tempItems.append(contentsOf: subParser.items)
+                
+                for await feedItems in group {
+                    allItems.append(contentsOf: feedItems)
                 }
-                self.items = self.tempItems
-            })
-            .store(in: &cancellables)
+            }
+            
+            self.items = allItems.sorted { $0.date > $1.date }
+            self.isFetching = false
+        }
     }
 }
 

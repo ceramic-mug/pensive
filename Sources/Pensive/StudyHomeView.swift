@@ -28,33 +28,17 @@ struct StudyHomeView: View {
             settings.theme.backgroundColor.ignoresSafeArea()
             
             GeometryReader { geo in
-                ZStack(alignment: .topLeading) {
-                    // Header Area (Fixed) - Only on non-compact
-                    if !isCompact {
-                        HStack {
-                            Button(action: { sidebarSelection = .home }) {
-                                Image(systemName: "arrow.left")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(settings.theme.textColor.opacity(0.6))
-                                    .padding(10)
-                                    .background(Circle().fill(settings.theme.textColor.opacity(0.05)))
-                            }
-                            .buttonStyle(.plain)
-                            .padding()
-                            Spacer()
-                        }
-                        .padding(.top, 40)
-                        .zIndex(2)
-                    }
+                UnifiedModuleHeader(
+                    title: "Study",
+                    subtitle: Date().formatted(date: .long, time: .omitted),
+                    onBack: { sidebarSelection = .home },
+                    onShowSettings: { showSettings = true }
+                )
                     
-                    VStack(spacing: 0) {
-                        if isCompact {
-                            iosHeader
-                        }
-                        
-                        ScrollView {
-                            VStack(spacing: isCompact ? 24 : 32) {
-                                Spacer(minLength: isCompact ? 20 : 40)
+                VStack(spacing: 0) {
+                    ScrollView {
+                        VStack(spacing: isCompact ? 24 : 32) {
+                            Spacer(minLength: isCompact ? 10 : 80)
                                 
                                 VStack(spacing: 8) {
                                     Text("Choose a source to begin reading")
@@ -121,53 +105,18 @@ struct StudyHomeView: View {
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: geo.size.height - (isCompact ? 80 : 0))
                     }
-                    }
-                    
-                    if !isCompact {
-                        VStack {
-                            Spacer()
-                        }
-                    }
                 }
             }
-            
-        }
-        .sheet(isPresented: $showFeedManager) {
-            FeedManagementView()
-        }
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
-                .environmentObject(settings)
+            .sheet(isPresented: $showFeedManager) {
+                FeedManagementView()
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
+                    .environmentObject(settings)
+            }
         }
     }
     
-    private var iosHeader: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Study")
-                    .font(.system(size: 32, weight: .bold, design: .serif))
-                    .foregroundColor(settings.theme.textColor)
-                
-                Text(Date().formatted(date: .long, time: .omitted))
-                    .font(getFont(size: 13))
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            Button(action: { showSettings = true }) {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 18))
-                    .foregroundColor(.secondary)
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
-        .background(settings.theme.backgroundColor)
-    }
     
     
     private func navigateToDashboard() {
